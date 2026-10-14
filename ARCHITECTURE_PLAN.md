@@ -179,7 +179,7 @@ Structured logs of **events, not content**, by default: state transitions, laten
 
 - Unit and contract tests for adapters and the state machine.
 - The **Nigerian-language and personality evaluation** in docs/NIGERIAN_LANGUAGE_EVALUATION_PLAN.md as a release gate for language and persona changes.
-- Accessibility tests (WCAG 2.1 AA, keyboard, screen reader, reduced motion).
+- Accessibility tests (WCAG 2.2 AA, which includes 2.1 AA; keyboard, screen reader, reduced motion).
 - Performance tests on a low-end Android device and modest Windows/Linux hardware.
 - Real-browser and real-device checks before claiming UI behaviour.
 

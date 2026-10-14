@@ -117,7 +117,7 @@ direction below. Only persist a design system (`--persist`) once the user approv
   Every state transition must work when interrupted mid-animation.
   Honour `prefers-reduced-motion` with a calm non-animated equivalent for every state.
 - **Audio-reactive visuals** must degrade gracefully (no mic permission, no WebGL, low-power device).
-- **Accessibility:** WCAG 2.1 AA, visible focus, keyboard-operable, captions/transcript for all voice
+- **Accessibility:** WCAG 2.2 AA (approved target; includes 2.1 AA), visible focus, keyboard-operable, captions/transcript for all voice
   output, screen-reader announcements for state changes.
 - **Cross-platform:** design tokens and component contracts should be portable across web, desktop
   (Windows/Linux), and Android. Do not assume pointer-only input; floating-assistant and always-on-top

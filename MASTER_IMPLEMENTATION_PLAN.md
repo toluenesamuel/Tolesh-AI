@@ -101,7 +101,7 @@ We reduce this dependence with adapters, fallbacks and our own harness, but we *
 ## 6. Quality bar
 
 - Release gates in docs/NIGERIAN_LANGUAGE_EVALUATION_PLAN.md section 7, with hard-fail ledger.
-- WCAG 2.1 AA, reduced-motion equivalents for every state, keyboard operability.
+- WCAG 2.2 AA (includes 2.1 AA), reduced-motion equivalents for every state, keyboard operability.
 - Responsive baseline per OPEN_DECISIONS.md D-21 (recommended): reflow without horizontal scroll at 320 CSS px and 400% zoom; design around 360-390 px.
 - Real-browser and real-device testing before any UI claim. No claim without evidence (AGENT_COLLABORATION.md section 5).
 

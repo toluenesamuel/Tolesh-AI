@@ -90,7 +90,7 @@ Tolesh is a **live, voice-first, always-available companion**. It needs real-tim
 | Icons | One open-licence SVG set (for example **Lucide**, ISC) | Consistent stroke, labelled and decorative use. No emoji as icons (AGENTS.md) | Emoji; mixed icon sets | Licence check at ADR |
 | Fonts | **Sora** (display), **Inter** (UI and body), **JetBrains Mono** (technical text). Self-hosted. All OFL | Distinctive display face without the overused cyberpunk pairings. Verified OFL in the UI skill's font-licence data | Orbitron (the cyberpunk default); CDN-loaded fonts (R-5) | None |
 | Desktop shell | **Tauri 2** (Windows: WebView2; Linux/Zorin: WebKitGTK) | Small installed size and low idle memory, which matters for an always-running companion. Stable with mobile targets | Electron (consistent Chromium everywhere; heavier) | **Zorin OS gate (F5):** mic, WebGL2, AudioWorklet and always-on-top must pass on WebKitGTK. If not, fall back to Electron |
-| Android shell | **Capacitor 8** around the same web build | Mature native permission handling for the microphone, and a conservative choice for voice on Android. Overlay work is native either way | **Tauri 2 mobile**: one toolchain across desktop and Android, but its Android WebView microphone permission path has documented problems (Tauri discussion #12732, April 2026) | **Android gate (F6):** microphone capture and a 60 fps orb on the reference device |
+| Android shell | **Capacitor 8** around the same web build (approved subject to device testing) | Native permission handling for the microphone; a conservative choice for voice on Android. Overlay work is native either way. **Revised 2026-10-14:** a September 2026 report says Capacitor 8.5.1 also denies the WebView microphone unless `MODIFY_AUDIO_SETTINGS` is declared, so this is tested in F1, not assumed | **Tauri 2 mobile**: one toolchain across desktop and Android, but its Android WebView microphone permission path has documented problems (Tauri discussion #12732, April 2026) | **Android gate (F6):** microphone capture and a 60 fps orb on the reference device |
 | Testing | **Vitest** + Testing Library (unit and component); **Playwright** in Chromium, Firefox and WebKit; **@axe-core/playwright** for accessibility scans | Real-browser verification, as the rules require. Covers all three rendering engines that our shells use | Unit tests only (not enough for audio or WebGL) | None |
 | Component gallery | **Storybook 10** (MIT), used to review every state of every component | Makes the 11 states and the orb look-up reviewable without running the whole app | None | Optional; decide in F2 |
 | Quality | ESLint with jsx-a11y; TypeScript `strict`; pnpm; Node 22 LTS | Catches common accessibility and type errors early | None | None |
@@ -121,7 +121,7 @@ The versions above have not been tested together. Compatibility between them is 
 
 ### 1.2 Platform-specific risks
 
-- **Zorin OS (Ubuntu-based):** WebKitGTK versions vary by release. Microphone, WebGL2, AudioWorklet and always-on-top behaviour must be tested on the actual Zorin version the user runs. Results are not assumed from other Linux systems. Wayland restricts overlays and screen capture, which affects Phase F7 and F8.
+- **Zorin OS (Ubuntu-based):** WebKitGTK versions vary by release. **Revised 2026-10-14:** third-party reports say WebKitGTK refuses `getUserMedia` unless media streams are enabled and a permission-request handler allows the microphone, and that missing GStreamer plugins leave the device list empty. Both are tested in F1 (WS-D). Microphone, WebGL2, AudioWorklet and always-on-top behaviour must be tested on the actual Zorin version the user runs. Results are not assumed from other Linux systems. Wayland restricts overlays and screen capture, which affects Phase F7 and F8.
 - **Windows:** WebView2 is Chromium-based and is usually present on Windows 10 and 11. Confirm the runtime is installed during packaging.
 - **Android:** the WebView grants microphone access only after both the OS permission and the WebView grant succeed. Test on a real device, including audio focus behaviour.
 
@@ -407,7 +407,7 @@ No phase starts until the user approves it in writing. F0 and F1 belong to roadm
 - Design tokens (§3.2, §3.3) recorded as a specification.
 - **Acceptance:** decisions recorded with dates in OPEN_DECISIONS.md; contract file reviewed; no code in the repository.
 
-### F1 — Spikes (roadmap Phase 0; throwaway prototypes; requires your approval)
+### F1 — Spikes (roadmap Phase 0; throwaway prototypes; plan in docs/F1_SPIKE_PLAN.md; execution awaits your approval)
 
 - Orb shader on the reference device (mid-range Android) and on a desktop browser.
 - Audio: getUserMedia and AudioWorklet in Chromium, in the Android WebView, and in WebKitGTK on Zorin OS.
@@ -479,6 +479,8 @@ Gates pass, evidence is committed (test reports, axe output, screenshots from re
 ---
 
 ## 11. Decisions requiring your approval
+
+**Status (2026-10-14):** items 1–6 and 9 were approved in your message (with conditions); see the approval record in OPEN_DECISIONS.md. Items 10 and 11 are still open. The spike plan is docs/F1_SPIKE_PLAN.md.
 
 | # | Decision | Recommendation | Why you need to decide |
 |---|---|---|---|

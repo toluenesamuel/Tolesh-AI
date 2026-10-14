@@ -1,6 +1,24 @@
 # Open Decisions
 
-Status: **all open**. Nothing below has been decided. Items marked **blocking** stop the named phase. Recommendations are proposals for you to accept or change.
+Status: **partly approved (2026-10-14).** Items in the approval record below are approved, with the conditions shown. All other items are still open. Items marked **blocking** stop the named phase. Recommendations are proposals for you to accept or change.
+
+## Approval record (2026-10-14)
+
+Source: your message approving docs/FRONTEND_IMPLEMENTATION_PLAN.md with six conditions.
+
+| Decision | Status | Condition or note |
+|---|---|---|
+| D-02 Frontend framework | **Approved:** React, TypeScript, Vite | Other stack libraries (TanStack, XState, Zod, React Aria, Tailwind 4, Motion): **confirmation requested** in docs/F1_SPIKE_PLAN.md §12 item 10 |
+| D-03 Platform approach | **Approved:** Option A (web-first, thin shells) | — |
+| D-19 Orb and face | **Approved:** animated AI orb. Abstract, no face in v1 | Renderer (WebGL2 or Canvas 2D fallback) confirmed by F1 spike results |
+| D-23 Computer control | **Approved:** none until a security review is approved | Condition 6 of your approval |
+| D-24 Desktop engine | **Approved:** Tauri 2 | **Subject to the Zorin OS compatibility test** (F1 WS-D, T-Z-1 to T-Z-6) |
+| D-25 Android shell | **Approved:** Capacitor | **Subject to device testing** (F1 WS-E, T-A-1 to T-A-4). New evidence (tc-mobile PR #334) means this must be tested, not assumed |
+| D-26 Accessibility | **Approved:** WCAG 2.2 AA target | Baseline wording in ARCHITECTURE_PLAN.md §10, MASTER_IMPLEMENTATION_PLAN.md §6 and AGENTS.md updated to match |
+| Design direction | **Approved:** futuristic, polished, animated AI orb, voice interaction, dashboard, light and dark themes | Palette and tokens are working values, finalised in F0 |
+| Security | **Approved:** no computer-control implementation before the security review is approved | Condition 6 |
+
+**Still open for approval:** D-21, D-22, D-27, D-28, D-29, the remaining stack libraries, D-06, D-05, D-17, D-09, D-14, D-07, D-10, D-01, D-20. The full list is in docs/F1_SPIKE_PLAN.md §12.
 
 Format: ID, question, options, recommendation, what it blocks, who decides.
 
@@ -107,13 +125,13 @@ Recommendation: decide after Phase 0 from evidence.
 
 ### D-24 Desktop shell engine (blocking Phase 4 desktop; new 2026-10-14)
 - **Options:** (a) Tauri 2 (WebView2 on Windows, WebKitGTK on Zorin OS); (b) Electron (bundled Chromium).
-- **Recommendation: (a),** with (b) as the fallback. Tauri is smaller, which suits an always-running companion. The Zorin OS gate must pass before commitment: microphone capture, WebGL2, AudioWorklet and always-on-top behaviour on the actual Zorin release.
+- **Recommendation: (a),** with (b) as the fallback. **Approved subject to the Zorin OS compatibility test.** Third-party reports say WebKitGTK denies the microphone unless media streams are enabled and a permission handler allows it (F1 WS-D, D3). Tauri is smaller, which suits an always-running companion. The Zorin OS gate must pass before commitment: microphone capture, WebGL2, AudioWorklet and always-on-top behaviour on the actual Zorin release.
 - **Who decides:** you, after the F5 gate.
 
 ### D-25 Android shell (blocking Phase 4 Android; new 2026-10-14)
 - **Options:** (a) Capacitor 8 around the same web build; (b) Tauri 2 mobile.
-- **Recommendation: (a).** Tauri's Android WebView microphone permission path has documented problems (Tauri discussion #12732, April 2026). Capacitor has mature native permission handling. Both need the F6 device gate.
-- **Who decides:** you.
+- **Recommendation: (a), approved subject to device testing.** Tauri's Android WebView microphone path has documented problems (Tauri discussion #12732, April 2026). Capacitor is not free of such problems: a September 2026 report (tc-mobile PR #334) says Capacitor 8.5.1 denies the WebView microphone unless `MODIFY_AUDIO_SETTINGS` is also declared. That is one device report and is not verified by us. The F1 spike (E2) decides between the two manifest variants.
+- **Who decides:** you (approved, conditional). Reopen if T-A-1 fails with every variant.
 
 ### D-26 Accessibility standard (new 2026-10-14)
 - **Options:** (a) keep WCAG 2.1 AA as written; (b) WCAG 2.2 AA, which includes every 2.1 AA criterion.
