@@ -32,12 +32,16 @@ Blocking: Phase 1 G0 behaviour beyond "supportive and encourage real-world help"
 ### D-02 Stack and framework (blocking Phase 1)
 Not chosen. Criteria: orb rendering performance on mid-range Android, mic/audio latency, offline behaviour, packaging, maintainability, accessibility. Decide through a short prototype, recorded as an ADR.
 
+**Recommendation (2026-10-14, see docs/FRONTEND_IMPLEMENTATION_PLAN.md §1):** TypeScript; React 19; Vite 8 as an installable PWA; TanStack Router and Query; XState for the conversation machine; Zod for events; React Aria Components; Tailwind CSS 4 with tokens; Motion for UI transitions; custom WebGL2 orb. Not Next.js. **Awaiting your approval.** The final choice is confirmed by the F1 spike and recorded as an ADR.
+
 ### D-03 Platform approach (blocking Phase 1 shell, Phase 4)
 - A: web-first PWA + thin desktop shells + Android wrapper.
 - B: web UI + native companions for overlay/agent features.
 - C: fully separate native apps.
 
 Recommendation: A for v1 conversation; revisit for overlay and agent features.
+
+**Frontend recommendation (2026-10-14):** A, with a Tauri 2 desktop shell (D-24) and a Capacitor Android shell (D-25). **Awaiting your approval.**
 
 ### D-04 Orchestrator placement
 Server, on-device or hybrid. Open-weight Nigerian models are about 1.5B-8B parameters and need GPUs. Hosted APIs mean cross-border transfer. On-device means smaller models and weaker language ability.
@@ -58,6 +62,8 @@ Event-only logs versus none. Content logging only with explicit consent. Recomme
 
 ### D-19 Orb rendering approach and optional face
 CSS/SVG, canvas or WebGL/shader; face versus abstract orb only. Decide by prototype against performance limits.
+
+**Frontend recommendation (2026-10-14):** abstract orb only in v1, drawn as a single WebGL2 fragment shader on one canvas, with Canvas 2D and static SVG fallbacks. No three.js in v1. Face deferred; if approved later, evaluate Rive. **Awaiting your approval**; confirmed by the F1 spike on the reference device.
 
 ## C. Language and personality
 
@@ -99,6 +105,35 @@ The placeholder thresholds in docs/NIGERIAN_LANGUAGE_EVALUATION_PLAN.md section 
 
 Recommendation: decide after Phase 0 from evidence.
 
+### D-24 Desktop shell engine (blocking Phase 4 desktop; new 2026-10-14)
+- **Options:** (a) Tauri 2 (WebView2 on Windows, WebKitGTK on Zorin OS); (b) Electron (bundled Chromium).
+- **Recommendation: (a),** with (b) as the fallback. Tauri is smaller, which suits an always-running companion. The Zorin OS gate must pass before commitment: microphone capture, WebGL2, AudioWorklet and always-on-top behaviour on the actual Zorin release.
+- **Who decides:** you, after the F5 gate.
+
+### D-25 Android shell (blocking Phase 4 Android; new 2026-10-14)
+- **Options:** (a) Capacitor 8 around the same web build; (b) Tauri 2 mobile.
+- **Recommendation: (a).** Tauri's Android WebView microphone permission path has documented problems (Tauri discussion #12732, April 2026). Capacitor has mature native permission handling. Both need the F6 device gate.
+- **Who decides:** you.
+
+### D-26 Accessibility standard (new 2026-10-14)
+- **Options:** (a) keep WCAG 2.1 AA as written; (b) WCAG 2.2 AA, which includes every 2.1 AA criterion.
+- **Recommendation: (b).** Documents currently say 2.1 AA (ARCHITECTURE_PLAN.md §10, AGENTS.md, MASTER_IMPLEMENTATION_PLAN.md §4). Targeting 2.2 meets those requirements. Updating the wording is a separate change, made only after you approve.
+- **Who decides:** you.
+
+### D-27 Motion library (new 2026-10-14)
+- **Options:** (a) CSS and the Web Animations API only; (b) `motion` (MIT) for UI transitions with CSS for micro-interactions; (c) GSAP.
+- **Recommendation: (b).** GSAP is not needed for v1; its skills stay conditional. The orb uses its own shader, not a library.
+- **Who decides:** you.
+
+### D-28 Component gallery (new 2026-10-14)
+- **Options:** (a) Storybook 10; (b) none.
+- **Recommendation: optional, decided in phase F2.** It helps review each state, but it adds a dependency and maintenance.
+- **Who decides:** you.
+
+### D-29 Fonts and icons (new 2026-10-14)
+- **Recommendation:** self-host Sora, Inter and JetBrains Mono (all OFL, verified in the UI skill's font-licence data). Use one open-licence icon set (for example Lucide, ISC). Confirm the chosen icon set's licence at ADR.
+- **Who decides:** you.
+
 ## D. Process and repository
 
 ### D-11 Branch and PR workflow (recommended; awaiting your acceptance)
@@ -133,3 +168,4 @@ If using N-ATLaS (user cap and same-licence derivatives) or NaijaVox (behavioura
 3. D-02, D-03, D-04, D-19 after Phase 0 results.
 4. D-07, D-08, D-09, D-14, D-10, D-16, D-18 before Phase 1 finishes.
 5. D-21 before Phase 1 UI acceptance criteria are written. D-22 before Phase 2. D-23 before Phase 5 design.
+6. D-24, D-25, D-26, D-27, D-28, D-29 before the F1 spikes (docs/FRONTEND_IMPLEMENTATION_PLAN.md §10). D-24 and D-25 are confirmed by their gates.

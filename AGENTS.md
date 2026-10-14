@@ -59,8 +59,8 @@ and limitations. No skill workflow authorises building before the user requests 
 | Design system, palette, type, layout, UX rules | `ui-ux-pro-max` | nextlevelbuilder/ui-ux-pro-max-skill |
 | Distinctive visual direction, anti-template rules | `frontend-design` | anthropics/skills |
 | Component architecture, state, responsive, a11y | `frontend-ui-engineering` | addyosmani/agent-skills |
-| Motion principles and audits | `design-motion-principles`, `motion-design`, `emil-design-eng`, `animate`, `review-animations`, `improve-animations` | via podo/design-agent-skills catalogue |
-| Motion performance | `animation-performance`, `fixing-motion-performance` | via podo/design-agent-skills catalogue |
+| Motion principles and audits | `design-motion-principles` (kylezantos), `motion-design` (LottieFiles), `emil-design-eng`, `animate`, `review-animations`, `improve-animations` (emilkowalski/skill) | per `skills-lock.json` |
+| Motion performance | `animation-performance` (emilkowalski/skill), `fixing-motion-performance` (ibelick/ui-skills) | per `skills-lock.json` |
 | GSAP (only if chosen) | `gsap-core`, `gsap-timeline`, `gsap-react`, `gsap-performance`, `gsap-utils` | greensock/gsap-skills |
 | Accessibility / baseline UI | `fixing-accessibility`, `baseline-ui` | ibelick/ui-skills |
 
@@ -68,6 +68,12 @@ The inherited `skills-lock.json` records sources and hashes; it is not proof of 
 which installer previously ran. Missing catalogue pointer entries were removed during the audit.
 `ui-ux-pro-max` has no lockfile entry. Preserve local resources; do not run bulk upgrades or install
 catalogue suggestions without reviewing their instructions, dependencies, and fit to the chosen stack.
+Full per-skill verification: [docs/SKILL_VERIFICATION.md](docs/SKILL_VERIFICATION.md).
+
+**Limits of `ui-ux-pro-max` data:** it has React and HTML-Tailwind stack files only (no Vite or React Aria file,
+no Three.js or voice coverage that matched the orb or voice queries). Its "AI-Native" style suggests AI purple
+(`#6366F1`); that default is overridden by the Tolesh direction below. Use the frontend plan for those areas:
+[docs/FRONTEND_IMPLEMENTATION_PLAN.md](docs/FRONTEND_IMPLEMENTATION_PLAN.md).
 
 ### Skill routing and precedence
 
@@ -152,7 +158,7 @@ direction below. Only persist a design system (`--persist`) once the user approv
 
 Full list with options and blocking effect: [OPEN_DECISIONS.md](OPEN_DECISIONS.md). In particular:
 
-1. App stack and packaging (D-02, D-03).
+1. App stack and packaging (D-02, D-03, D-24, D-25). Recommendations are in docs/FRONTEND_IMPLEMENTATION_PLAN.md §11.
 2. Orb rendering approach (D-19) - drives which motion skills apply.
 3. Whether to adopt GSAP, Framer Motion, or CSS-only motion (install matching skills only after deciding).
 4. Voice and LLM providers, where API keys live, and the configurable male-presenting voice scope (D-05, D-22).
