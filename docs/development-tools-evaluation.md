@@ -32,7 +32,7 @@ Sandbox environment for comparison: Node v22.22.3, npm 10.9.8, Python 3.11.2. No
 - **Dependencies:** very large (Next.js, Playwright, SQLite drivers, Monaco, and many more). It has a postinstall step that can write a local `.env`.
 - **Security:** README states prompts are sent to whichever upstream provider is selected, credentials are encrypted at rest with AES-256-GCM, telemetry is off by default, and there is a prompt-injection guard and an opt-in credential-masking guardrail. It also exposes an MCP server and REST APIs that let a connected agent control the gateway itself, and includes a MITM/TPROXY decrypt feature. These are high-impact capabilities that would need review before use.
 - **Arena compatibility:** the sandbox satisfies its Node range, but running it would be a long-lived service exposed to the preview system, holding provider keys. That is not appropriate without an explicit decision.
-- **Fit for Tolesh:** Tolesh's provider decisions depend on evaluation results (see the planning documents on `genspark_ai_developer`, D-05). A gateway would hide provider differences that must be measured per language. The provider adapter and capability manifest are a better fit.
+- **Fit for Tolesh:** Tolesh's provider decisions depend on evaluation results (see OPEN_DECISIONS.md D-05 and ARCHITECTURE_PLAN.md 3.6). A gateway would hide provider differences that must be measured per language. The provider adapter and capability manifest are a better fit.
 - **Needed from user for any future install:** a decision on whether to route Tolesh through a gateway, and provider-key handling approved in `SECURITY_AND_PRIVACY_PLAN.md`.
 
 ## 2. Superpowers
@@ -67,6 +67,16 @@ Sandbox environment for comparison: Node v22.22.3, npm 10.9.8, Python 3.11.2. No
 - **Security and privacy:** runs inside the user's session with the user's permissions, reads the repository, and its own README says the scanned code is trusted and that untrusted repositories should be scanned inside a sandbox. Findings and code are sent to the chosen Anthropic model. The plugin sends usage counts through Claude Code telemetry; `DISABLE_TELEMETRY=1` or `DO_NOT_TRACK=1` turns that off. Its SECURITY.md defines the reporting route for plugin vulnerabilities.
 - **Arena compatibility:** cannot run in Arena without Claude Code. Not verified.
 - **Fit for Tolesh:** high value before any feature that handles screen content, microphone audio, credentials, or computer control. `SECURITY_AND_PRIVACY_PLAN.md` section 12 requires security reviews before those features. Use it as an independent reviewer, not as the author of the code it reviews (see `AGENT_COLLABORATION.md`).
+
+## Installation gate
+
+A tool or plugin may be installed only when **all** of these are recorded in this file:
+
+1. **Compatibility:** the host it needs exists and was checked (for example Claude Code on the user's machine, or Node within the tool's engine range).
+2. **Permissions:** the user has approved, in writing, what the tool may read, write, execute and send over the network.
+3. **Installation safety:** the official install route was read in full. Any remote script was downloaded, inspected, and then run by the user or with explicit approval. Pinned versions are recorded.
+4. **Data and privacy:** the telemetry, cloud, and retention behaviour is known, and the opt-out is set before first run. No user content may flow to a service that is not approved in SECURITY_AND_PRIVACY_PLAN.md.
+5. **Verification:** a post-install check proves it is installed and working. Until then it is reported as "not installed".
 
 ## Required user action (none taken)
 
