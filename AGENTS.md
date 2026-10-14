@@ -10,9 +10,13 @@ listening / thinking / speaking states, screen awareness, computer task executio
 > Status: no application code exists yet. The stack has NOT been chosen.
 > Do not scaffold the app until the user asks.
 
-## Installed skills (project-level, in `.agents/skills/`)
+## Local skill instructions (project-level, in `.agents/skills/`)
 
-Read the relevant `SKILL.md` before doing that kind of work.
+Read the relevant `SKILL.md` before doing that kind of work. These files were
+already present at the start of this setup audit. Arena native activation and
+auto-discovery are not verified; explicitly read them as project instructions.
+See [the compatibility report](docs/skill-setup.md) for evidence and limitations.
+No skill workflow authorizes building before the user requests implementation.
 
 | Need | Skill(s) | Source |
 |------|----------|--------|
@@ -24,8 +28,26 @@ Read the relevant `SKILL.md` before doing that kind of work.
 | GSAP (only if chosen) | `gsap-core`, `gsap-timeline`, `gsap-react`, `gsap-performance`, `gsap-utils` | greensock/gsap-skills |
 | Accessibility / baseline UI | `fixing-accessibility`, `baseline-ui` | ibelick/ui-skills |
 
-Provenance and hashes for skills installed with `npx skills` are in `skills-lock.json`.
-`ui-ux-pro-max` was installed by its own CLI and is not in that lockfile.
+The inherited `skills-lock.json` records sources and hashes; it is not proof of
+native activation or of which installer previously ran. Missing catalogue pointer
+entries were removed during the audit. `ui-ux-pro-max` has no lockfile entry.
+Preserve local resources; do not run bulk upgrades or install catalogue suggestions
+without reviewing their instructions, dependencies, and fit to the chosen stack.
+
+### Skill routing and precedence
+
+- Use `ui-ux-pro-max` for design-system research, then `frontend-design` for visual direction.
+- Use `frontend-ui-engineering` for component contracts and implementation quality.
+  Its shared checklist is `.agents/references/accessibility-checklist.md`.
+- For motion, start with `design-motion-principles`; use `motion-design` for timing
+  and state choreography, then `fixing-motion-performance` for performance review.
+- Other existing motion skills are supplementary, not competing mandatory workflows.
+  GSAP/React/Framer-specific examples are conditional on an approved stack;
+  their presence does not install or select those runtime libraries.
+- User requirements and project accessibility, privacy, and platform constraints
+  take precedence over aesthetic defaults. Skill examples are illustrative, not
+  tested production components. Adapt host-specific tool names to available tools;
+  never claim browser or platform validation without performing it.
 
 ## How to use ui-ux-pro-max here
 
@@ -66,10 +88,13 @@ Only persist a design system (`--persist`) once the user approves a direction.
 
 ## Engineering rules
 
-- Follow `frontend-ui-engineering`: small reusable components, design tokens, responsive down to 375px.
+- Follow `frontend-ui-engineering`: small reusable components, design tokens, responsive down to 320px.
 - Verify in a real browser before claiming a UI works.
 - Never commit secrets. Use environment variables; keep `.env*` out of git.
-- Commit after each change, on branch `genspark_ai_developer`, and open/update a PR to `main`.
+- Work only on the session branch `arena/fae714f3-tolesh-ai`. Do not switch branches.
+- User preference: after completing and checking changes, commit and push them to
+  GitHub using `git push origin arena/fae714f3-tolesh-ai`. Report any push failure;
+  never claim changes are pushed unless the command succeeds. Do not include secrets.
 
 ## Open decisions (ask the user; do not assume)
 

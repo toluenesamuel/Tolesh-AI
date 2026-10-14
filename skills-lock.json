@@ -31,12 +31,6 @@
       "skillPath": "skills/emil-design-eng/SKILL.md",
       "computedHash": "51f2537e04d15911b41d78e2de24c36a0e26d41beae15e82a954fe5496a5eda9"
     },
-    "emilkowalski-skill": {
-      "source": "podo/design-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/emilkowalski-skill/SKILL.md",
-      "computedHash": "e9136bd3805d77660d2aa0589581ba99fd597ea009a2e70fe2bb76c8636708aa"
-    },
     "fixing-accessibility": {
       "source": "ibelick/ui-skills",
       "sourceType": "github",
@@ -48,12 +42,6 @@
       "sourceType": "github",
       "skillPath": "skills/fixing-motion-performance/SKILL.md",
       "computedHash": "426dcf33f23419643f2aab71e2253e1a5b5684a808fabb8a4ad135e489ed7a0f"
-    },
-    "framer-motion-skills": {
-      "source": "podo/design-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/framer-motion-skills/SKILL.md",
-      "computedHash": "6c4e05abb2b164d61e77d8c5ace00294039a072c106cede49944f9085cc1e964"
     },
     "frontend-design": {
       "source": "anthropics/skills",
@@ -85,12 +73,6 @@
       "skillPath": "skills/gsap-react/SKILL.md",
       "computedHash": "7d3b52822681a4158e371f895c58fb7030ecaf33f585a534b7162f9e92c5d893"
     },
-    "gsap-skills": {
-      "source": "podo/design-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/gsap-skills/SKILL.md",
-      "computedHash": "4c14720cac13c204cef8d83f84569d82b6e2e93c3230a8e58925a6b545928321"
-    },
     "gsap-timeline": {
       "source": "greensock/gsap-skills",
       "sourceType": "github",
@@ -109,23 +91,11 @@
       "skillPath": "skills/improve-animations/SKILL.md",
       "computedHash": "524ea241e41d58bbdd8e288700fe24f5725e2a2f3ae7186ad7cebf9055058356"
     },
-    "motion-catalogue": {
-      "source": "podo/design-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/motion-catalogue/SKILL.md",
-      "computedHash": "07bf729f655a5e825a0f11509e114b707099d1c8f3e5d9811eff07ddb548949f"
-    },
     "motion-design": {
       "source": "LottieFiles/motion-design-skill",
       "sourceType": "github",
       "skillPath": "skills/motion-design/SKILL.md",
       "computedHash": "9fcf9130cc46ee8fd1d8e09a9263347a9d76efbcbfa46591cc4cefaf19bbb453"
-    },
-    "motion-design-skill": {
-      "source": "podo/design-agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/motion-design-skill/SKILL.md",
-      "computedHash": "9de0b133f61e112667dfb0c81f991c01fe2a50670f1fb5a1dc996680a3ba341f"
     },
     "review-animations": {
       "source": "emilkowalski/skill",
