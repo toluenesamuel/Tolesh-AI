@@ -45,6 +45,8 @@ Q5 is the only question that depends on third parties and on native speakers. It
 
 ## 4. Environment and devices
 
+Android-only adaptation (no Windows or Zorin PC, phone as the only device): see docs/ANDROID_ONLY_WORKFLOW.md. It separates tests that run now, on the phone, in CI, in Firebase Test Lab, and on physical Windows or Zorin machines.
+
 ### 4.1 Hardware needed (you to provide or confirm)
 
 | Target | Minimum needed | Why |
