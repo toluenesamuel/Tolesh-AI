@@ -10,6 +10,37 @@ listening / thinking / speaking states, screen awareness, computer task executio
 > Status: no application code exists yet. The stack has NOT been chosen.
 > Do not scaffold the app until the user asks.
 
+## Core requirement: Nigerian cultural intelligence, languages, companion personality
+
+Tolesh is **not a generic chatbot**. It is a personal AI companion with a natural,
+male-presenting personality and Nigerian linguistic and cultural awareness (Nigerian
+English, Nigerian Pidgin, Yoruba, and natural switching between them). This shapes
+architecture, data model, UI states and testing from the start. It is not a later add-on.
+
+Read before touching conversation, voice, memory, or avatar work:
+[MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md) ·
+[ARCHITECTURE_PLAN.md](ARCHITECTURE_PLAN.md) ·
+[docs/PERSONALITY_AND_EMOTION_SPEC.md](docs/PERSONALITY_AND_EMOTION_SPEC.md) ·
+[docs/MEMORY_AND_PERSONALIZATION_SPEC.md](docs/MEMORY_AND_PERSONALIZATION_SPEC.md) ·
+[docs/NIGERIAN_LANGUAGE_EVALUATION_PLAN.md](docs/NIGERIAN_LANGUAGE_EVALUATION_PLAN.md) ·
+[docs/NIGERIAN_LANGUAGE_AND_SPEECH_RESEARCH.md](docs/NIGERIAN_LANGUAGE_AND_SPEECH_RESEARCH.md) ·
+[SECURITY_AND_PRIVACY_PLAN.md](SECURITY_AND_PRIVACY_PLAN.md) ·
+[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) ·
+[OPEN_DECISIONS.md](OPEN_DECISIONS.md) ·
+[AGENT_COLLABORATION.md](AGENT_COLLABORATION.md)
+
+Non-negotiables (details in the specs):
+- **Do not claim** Pidgin, Yoruba, voice, or code-switching "works" until tested and recorded.
+  Provider language lists are not evidence. Status labels: Untested / Experimental / Beta / Supported / Not supported.
+- **Mirror the user; don't perform.** No forced Pidgin or slang. Unknown slang: ask, never invent a meaning.
+- **A Situation Gate runs before every reply.** Immediate context beats memory. No humour at crisis or serious moments.
+- **Cultural context is an option the user can overrule, never a stereotype.**
+- **Tolesh never claims to literally feel emotions.** No guilt-tripping, no sustained hostility.
+  Roasting is opt-in with topic and intensity limits, and a stop request is absolute and persistent.
+- **Memory is user-controlled:** inspectable, correctable, disableable, deletable. No silent learning.
+- **Providers sit behind adapters** with a tested capability manifest. Never hard-code a vendor.
+- AI-written Pidgin or Yoruba is **not authentic** until native speakers review it.
+
 ## Installed skills (project-level, in `.agents/skills/`)
 
 Read the relevant `SKILL.md` before doing that kind of work.
@@ -69,7 +100,10 @@ Only persist a design system (`--persist`) once the user approves a direction.
 - Follow `frontend-ui-engineering`: small reusable components, design tokens, responsive down to 375px.
 - Verify in a real browser before claiming a UI works.
 - Never commit secrets. Use environment variables; keep `.env*` out of git.
-- Commit after each change, on branch `genspark_ai_developer`, and open/update a PR to `main`.
+- Work only on the designated branch. Commit small changes and use a plain `git push origin <branch>`.
+  Do not merge, rebase, force-push, hard-reset, or alter remotes, permissions or settings.
+  If a push fails, stop and report. See [AGENT_COLLABORATION.md](AGENT_COLLABORATION.md) section 3,
+  including the unresolved relationship with branch `arena/fae714f3-tolesh-ai` (OPEN_DECISIONS.md D-11).
 
 ## Open decisions (ask the user; do not assume)
 
