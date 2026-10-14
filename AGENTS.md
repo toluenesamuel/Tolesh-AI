@@ -92,6 +92,12 @@ Only persist a design system (`--persist`) once the user approves a direction.
 - Verify in a real browser before claiming a UI works.
 - Never commit secrets. Use environment variables; keep `.env*` out of git.
 - Work only on the session branch `arena/fae714f3-tolesh-ai`. Do not switch branches.
+- User preference: before starting a work task, fetch origin and check
+  `origin/genspark_ai_developer` for new commits. Bring new changes into this
+  session branch when present, preserving existing work. Review changes before
+  integrating; ask before resolving ambiguous conflicts or discarding work.
+  Never switch to or push directly to the original branch. This check occurs
+  during active work, not as background monitoring between messages.
 - User preference: after completing and checking changes, commit and push them to
   GitHub using `git push origin arena/fae714f3-tolesh-ai`. Report any push failure;
   never claim changes are pushed unless the command succeeds. Do not include secrets.
