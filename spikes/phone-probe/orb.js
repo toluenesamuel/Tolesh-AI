@@ -21,6 +21,9 @@ uniform float u_circ;     // 0..1, processing circulation
 uniform float u_flowAmp;  // 0..1, inner colour contrast
 uniform float u_bright;   // global brightness (paused, error dim)
 uniform float u_tint;     // 0..1, how much the accent mixes into the body and halo
+uniform vec2 u_gaze;     // simulated gaze, roughly -0.4..0.4 (no camera)
+uniform float u_open;    // lid openness, 0..1.2 (0 = closed line)
+uniform float u_pupil;   // 0 = small, 1 = large
 uniform vec3 u_accent;
 uniform vec3 u_base;
 uniform vec3 u_deep;
@@ -80,6 +83,33 @@ void main() {
   col += vec3(h16 * 0.25);
   col = clamp(col, 0.0, 1.0);
 
+  // Eye: one luminous lens centred in the body. Gaze moves the iris; openness sets the lids.
+  float W = 0.44;
+  float ke = 1.5 / (s * R);
+  float openC = clamp(u_open, 0.0, 1.2);
+  float H = 0.22 * openC * sqrt(max(0.0, 1.0 - (q.x / W) * (q.x / W)));
+  float lens = 1.0 - smoothstep(-ke, ke, abs(q.y) - H);
+  lens *= 1.0 - smoothstep(W - 0.02, W, abs(q.x));
+  float eyeM = lens * body;
+  vec2 ic = q - u_gaze * 0.16;
+  float ir = length(ic);
+  float irisR = 0.17;
+  float pr = mix(0.045, 0.085, clamp(u_pupil, 0.0, 1.0));
+  float irisM = 1.0 - smoothstep(irisR - ke, irisR + ke, ir);
+  float pupM = 1.0 - smoothstep(pr - ke, pr + ke, ir);
+  float fib = 0.5 + 0.5 * sin(atan(ic.y, ic.x) * 22.0 + ir * 40.0);
+  vec3 irisCol = mix(tint * 1.15, u_deep * 0.5, smoothstep(0.55 * irisR, irisR, ir)) * (0.85 + 0.3 * fib);
+  vec3 scl = mix(tint, vec3(0.85, 0.95, 1.0), 0.5);
+  float hl1 = 1.0 - smoothstep(0.0, 0.035, length(ic - vec2(-0.06, 0.07)));
+  float hl2 = 1.0 - smoothstep(0.0, 0.012, length(ic - vec2(0.05, -0.05)));
+  vec3 eyeCol = mix(scl, irisCol, irisM);
+  eyeCol = mix(eyeCol, vec3(0.02, 0.03, 0.07), pupM);
+  eyeCol += vec3(hl1 * 0.9 + hl2 * 0.5) * irisM * (1.0 - pupM);
+  col = mix(col, eyeCol, eyeM * 0.92);
+  float lidLine = (1.0 - smoothstep(0.0, 2.2 * ke, abs(abs(q.y) - H))) * (1.0 - smoothstep(W - 0.02, W, abs(q.x)));
+  col += u_accent * lidLine * 0.6 * body;
+  col = clamp(col, 0.0, 1.0);
+
   // Acting: a smooth sweeping arc on the halo.
   float sweep = 0.5 + 0.5 * cos(a - u_t * 1.6);
   float arc = sweep * sweep * sweep;
@@ -108,11 +138,13 @@ function compile(gl, type, src) {
 const EASE = {
   level: [18, 5], speak: [18, 6], active: [6, 6], err: [4, 4],
   speed: [3, 3], flowAmp: [3, 3], circ: [3, 3], bright: [4, 4], tint: [3, 3],
+  gx: [6, 6], gy: [6, 6], open: [25, 25], pupil: [5, 5],
 };
 
 function makeSmoother() {
   const cur = {
     level: 0, speak: 0, active: 0, err: 0, speed: 0.5, flowAmp: 0.6, circ: 0, bright: 1, tint: 0,
+    gx: 0, gy: 0, open: 1, pupil: 0.4,
     accent: ACCENT.idle.slice(), phase: 0, last: null,
   };
   return {
@@ -159,7 +191,7 @@ export function createOrb(canvas) {
 
   const U = {};
   for (const n of ['u_res', 'u_t', 'u_motion', 'u_level', 'u_speak', 'u_active', 'u_err', 'u_circ',
-    'u_flowAmp', 'u_bright', 'u_tint', 'u_accent', 'u_base', 'u_deep']) {
+    'u_flowAmp', 'u_bright', 'u_tint', 'u_gaze', 'u_open', 'u_pupil', 'u_accent', 'u_base', 'u_deep']) {
     U[n] = gl.getUniformLocation(prog, n);
   }
   gl.uniform3f(U.u_base, BASE[0], BASE[1], BASE[2]);
@@ -196,6 +228,9 @@ export function createOrb(canvas) {
       gl.uniform1f(U.u_flowAmp, c.flowAmp);
       gl.uniform1f(U.u_bright, c.bright);
       gl.uniform1f(U.u_tint, c.tint);
+      gl.uniform2f(U.u_gaze, c.gx, c.gy);
+      gl.uniform1f(U.u_open, c.open);
+      gl.uniform1f(U.u_pupil, c.pupil);
       gl.uniform3f(U.u_accent, c.accent[0], c.accent[1], c.accent[2]);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);

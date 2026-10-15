@@ -4,6 +4,7 @@
 // The page's CSP sets connect-src 'none'.
 import { createOrb, createOrb2D } from './orb.js';
 import { MODES, LABELS, MOTION_TEXT, targetsFor, speechEnvelope, rmsToLevel, clamp } from './state.js';
+import { createEye } from './eye.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -78,6 +79,7 @@ let calibrating = false, calSamples = [], threshold = null, bargeCount = 0;
 let sim = null;      // { osc, g, an, startPerf, timer }
 let fps = null;      // { t0, ts }
 let lastKey = '';
+const eye = createEye();
 
 const modeButtons = document.querySelectorAll('[data-mode]');
 
@@ -415,6 +417,12 @@ function frame(now) {
 
   const level = micStream ? micLevel : (reduced ? 0.15 : 0.22 + 0.05 * Math.sin(now / 600));
   const tgt = targetsFor(mode, { level, speak, paused, reduced });
+  // Simulated eye: gaze, blink, lid openness and pupil. No camera is used.
+  const e = eye.step(now / 1000, mode, { level, speak, reduced, paused });
+  tgt.gx = e.gx;
+  tgt.gy = e.gy;
+  tgt.open = e.open;
+  tgt.pupil = e.pupil;
   tgt.now = now;
 
   if (!orb) return;
