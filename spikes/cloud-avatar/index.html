@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="dark">
+  <title>Tolesh cloud avatar (prototype)</title>
+  <link rel="stylesheet" href="cloud.css">
+</head>
+<body>
+  <header class="top">
+    <h1 id="cloud-name">Tolesh</h1>
+    <p>Cloud avatar prototype. Preview for review. Not integrated into the app.</p>
+  </header>
+
+  <main id="stage" class="stage">
+    <svg id="cloud" viewBox="0 0 360 320" role="img" aria-labelledby="cloud-name state-label" tabindex="0"></svg>
+    <div class="status">
+      <p id="state-label" class="label" aria-live="polite">Idle</p>
+      <p id="state-hint" class="hint">Move your cursor or touch near the cloud. When it is focused, arrow keys move its attention.</p>
+    </div>
+  </main>
+
+  <section class="controls" aria-label="Controls">
+    <nav class="states" aria-label="Avatar state">
+      <button type="button" data-state="idle" aria-pressed="true">Idle</button>
+      <button type="button" data-state="listening" aria-pressed="false">Listening</button>
+      <button type="button" data-state="thinking" aria-pressed="false">Thinking</button>
+      <button type="button" data-state="speaking" aria-pressed="false">Speaking</button>
+      <button type="button" data-state="acting" aria-pressed="false">Acting</button>
+      <button type="button" data-state="error" aria-pressed="false">Error</button>
+    </nav>
+    <div class="toggles">
+      <button type="button" id="toggle-reduce" aria-pressed="false">Reduce motion</button>
+      <button type="button" id="toggle-voice" aria-pressed="true">Simulated voice</button>
+    </div>
+  </section>
+
+  <script type="module" src="cloud.js"></script>
+</body>
+</html>

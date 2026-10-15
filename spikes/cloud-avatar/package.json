@@ -1,0 +1,9 @@
+{
+  "name": "tolesh-cloud-avatar-prototype",
+  "private": true,
+  "description": "Throwaway prototype. No dependencies. Not part of the app build.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/cloud.test.mjs"
+  }
+}
