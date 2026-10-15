@@ -87,8 +87,8 @@ void main() {
   float W = 0.44;
   float ke = 1.5 / (s * R);
   float openC = clamp(u_open, 0.0, 1.2);
-  float H = 0.22 * openC * sqrt(max(0.0, 1.0 - (q.x / W) * (q.x / W)));
-  float lens = 1.0 - smoothstep(-ke, ke, abs(q.y) - H);
+  float eh = 0.22 * openC * sqrt(max(0.0, 1.0 - (q.x / W) * (q.x / W)));
+  float lens = 1.0 - smoothstep(-ke, ke, abs(q.y) - eh);
   lens *= 1.0 - smoothstep(W - 0.02, W, abs(q.x));
   float eyeM = lens * body;
   vec2 ic = q - u_gaze * 0.16;
@@ -106,7 +106,7 @@ void main() {
   eyeCol = mix(eyeCol, vec3(0.02, 0.03, 0.07), pupM);
   eyeCol += vec3(hl1 * 0.9 + hl2 * 0.5) * irisM * (1.0 - pupM);
   col = mix(col, eyeCol, eyeM * 0.92);
-  float lidLine = (1.0 - smoothstep(0.0, 2.2 * ke, abs(abs(q.y) - H))) * (1.0 - smoothstep(W - 0.02, W, abs(q.x)));
+  float lidLine = (1.0 - smoothstep(0.0, 2.2 * ke, abs(abs(q.y) - eh))) * (1.0 - smoothstep(W - 0.02, W, abs(q.x)));
   col += u_accent * lidLine * 0.6 * body;
   col = clamp(col, 0.0, 1.0);
 

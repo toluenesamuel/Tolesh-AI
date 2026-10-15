@@ -56,16 +56,25 @@ function checkCaps() {
 }
 
 // ---------- orb
-const canvas = $('orb');
+// If the WebGL shader fails, its canvas keeps the failed WebGL context and cannot give a 2D context.
+// So the canvas is swapped for a fresh one before the 2D fallback. The error is shown on the page.
+let canvas = $('orb');
 let orb = null;
+let orbError = null;
 try {
   orb = createOrb(canvas);
 } catch (e) {
-  log('renderer-error', { message: String(e).slice(0, 200) });
+  orbError = String(e).slice(0, 300);
+  log('renderer-error', { message: orbError });
+  const fresh = canvas.cloneNode(false);
+  canvas.replaceWith(fresh);
+  canvas = fresh;
   orb = null;
 }
 if (!orb) orb = createOrb2D(canvas);
 const rendererKind = orb ? orb.kind : 'none';
+const orbMessage = orb ? null
+  : `The orb could not start in this browser.${orbError ? ' Error: ' + orbError.slice(0, 160) : ''}`;
 
 // ---------- state
 let mode = 'idle';
@@ -363,6 +372,7 @@ function fpsFinish() {
 
 // ---------- UI
 function detailText() {
+  if (orbMessage) return orbMessage;
   if (mode === 'listening') return micStream ? 'Listening. The rim and glow follow the microphone level.' : 'Attentive pulse. Start the microphone to react to your voice.';
   if (mode === 'speaking') return sim ? 'Speaking. Reacting to the test voice playing from this phone.' : 'Speaking pulse, with no audio. Use Simulate reply to react to real sound.';
   return MOTION_TEXT[mode];

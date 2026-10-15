@@ -142,3 +142,14 @@ test('no obvious secrets or network calls in the demo code', () => {
     assert.doesNotMatch(s, /\bfetch\(|XMLHttpRequest|WebSocket|sendBeacon/, `${f} makes network calls`);
   }
 });
+
+test('shader declares no local variable twice (a redeclaration blanks the orb)', () => {
+  const src = read('orb.js');
+  const frag = src.split('const FRAG = `')[1].split('`;')[0];
+  const body = frag.slice(frag.indexOf('void main()'));
+  const names = [...body.matchAll(/\b(?:float|vec2|vec3|vec4|int|bool)\s+(\w+)\s*[=;]/g)].map((m) => m[1]);
+  const seen = new Set();
+  const dups = [];
+  for (const n of names) { if (seen.has(n)) dups.push(n); seen.add(n); }
+  assert.deepEqual(dups, [], `duplicate shader variables: ${dups.join(', ')}`);
+});
