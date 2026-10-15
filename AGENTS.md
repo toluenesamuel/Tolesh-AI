@@ -63,6 +63,7 @@ and limitations. No skill workflow authorises building before the user requests 
 | Motion performance | `animation-performance` (emilkowalski/skill), `fixing-motion-performance` (ibelick/ui-skills) | per `skills-lock.json` |
 | GSAP (only if chosen) | `gsap-core`, `gsap-timeline`, `gsap-react`, `gsap-performance`, `gsap-utils` | greensock/gsap-skills |
 | Accessibility / baseline UI | `fixing-accessibility`, `baseline-ui` | ibelick/ui-skills |
+| Avatar / character identity (the Tolesh orb's visual identity, and its prompts) | `ai-avatar` | Pancat009/ai-avatar-skill (MIT, commit ca4ee96); see `.agents/skills/ai-avatar/SOURCE.md`. Design proposal: `docs/AVATAR_DESIGN.md` |
 
 The inherited `skills-lock.json` records sources and hashes; it is not proof of native activation or of
 which installer previously ran. Missing catalogue pointer entries were removed during the audit.
