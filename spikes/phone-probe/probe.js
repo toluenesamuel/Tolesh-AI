@@ -172,15 +172,19 @@ function frame(now) {
   const name = run ? run.state : manualState;
   const S = STATES[name];
   const level = levelFor(name, now);
-  const speak = name === 'speaking'
-    ? 0.5 + 0.5 * Math.sin((now / 1000) * 6) * Math.sin((now / 1000) * 1.7)
-    : 0;
+  // Speaking reacts to the real test-tone output when it plays. Otherwise a simulated pulse is used.
+  let speak = 0;
+  if (name === 'speaking') {
+    if (toneNodes && outAnalyser) speak = Math.min(1, rmsOf(outAnalyser) * 4);
+    else speak = 0.5 + 0.5 * Math.sin((now / 1000) * 6) * Math.sin((now / 1000) * 1.7);
+  }
   const p = {
-    t: now / 1000,
-    speed: reduceMotion ? 0 : S.speed,
+    now,
+    speed: S.speed,
     level, speak, active: S.active, error: S.error, color: S.color,
+    reduced: reduceMotion,
   };
-  // With reduced motion on, draw only when the visible state changes (no continuous animation).
+  // With reduced motion on, draw only when the visible state or level changes (no continuous animation).
   const key = `${name}|${reduceMotion ? 'static' : 'anim'}|${Math.round(level * 50)}|${Math.round(speak * 50)}`;
   if (!reduceMotion || key !== lastDrawKey) {
     orb.draw(p);
@@ -213,13 +217,14 @@ async function ensureCtx() {
 
 function setLevelText(t) { $('levelText').textContent = t; }
 
-function rmsFromAnalyser() {
-  const buf = new Float32Array(analyser.fftSize);
-  analyser.getFloatTimeDomainData(buf);
+function rmsOf(an) {
+  const buf = new Float32Array(an.fftSize);
+  an.getFloatTimeDomainData(buf);
   let s = 0;
   for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
   return Math.sqrt(s / buf.length);
 }
+const rmsFromAnalyser = () => rmsOf(analyser);
 
 function onMeter(e) {
   const { rms, t } = e.data;
@@ -336,6 +341,7 @@ let toneNodes = null;
 let toneTimer = null;
 let toneStartPerf = 0;
 let bargeArmed = false;
+let outAnalyser = null;
 
 async function toneStart() {
   if (toneNodes) return;
@@ -346,6 +352,9 @@ async function toneStart() {
   const g = ctx.createGain();
   g.gain.value = 0;
   osc.connect(g).connect(ctx.destination);
+  outAnalyser = ctx.createAnalyser();          // reads the tone's output level for the orb
+  outAnalyser.fftSize = 512;
+  g.connect(outAnalyser);
   const t0 = ctx.currentTime + 0.05;
   for (let i = 0; i < 7; i++) {               // 1 s on, 0.5 s off, for about 10 s
     const s = t0 + i * 1.5;
@@ -374,6 +383,8 @@ function toneStop(reason, extra = {}) {
   try { osc.stop(); } catch (_) { /* already stopped */ }
   osc.disconnect();
   g.disconnect();
+  try { if (outAnalyser) outAnalyser.disconnect(); } catch (_) { /* already disconnected */ }
+  outAnalyser = null;
   clearTimeout(toneTimer);
   toneNodes = null;
   bargeArmed = false;
