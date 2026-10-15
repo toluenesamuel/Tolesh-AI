@@ -1,23 +1,108 @@
-:root { color-scheme: dark; --bg:#07090E; --surface:#0D1119; --raised:#141A25; --text:#EEF2F8; --text2:#B3BDCC; --muted:#97A3B7; --control:#6B7890; --focus:#9BE9FF; }
+:root {
+  color-scheme: dark;
+  --bg: #07090E;
+  --surface: #0D1119;
+  --raised: #141A25;
+  --line: #26303F;
+  --text: #EEF2F8;
+  --text2: #B3BDCC;
+  --muted: #97A3B7;
+  --control: #6B7890;
+  --focus: #9BE9FF;
+  --blue: #3D9BFF;
+  --bluebg: #15233A;
+}
+
 * { box-sizing: border-box; }
-html, body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:16px; line-height:1.5; }
-main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
-h1 { font-size: 1.5rem; margin: 8px 0; }
-h2 { font-size: 1.125rem; margin: 0 0 8px; color: var(--text); }
-section { background: var(--surface); border: 1px solid #26303F; border-radius: 16px; padding: 16px; margin: 16px 0; }
-.notice { color: var(--text2); }
-.hint { color: var(--muted); font-size: .9375rem; }
-.caps { list-style: none; margin: 0; padding: 0; font-size: .9375rem; color: var(--text2); }
-.caps li { padding: 2px 0; }
-.orb-wrap { display:flex; justify-content:center; }
-canvas#orb { width: min(80vw, 360px); height: min(80vw, 360px); display:block; background: transparent; }
-.state { text-align:center; font-weight:600; font-size: 1.125rem; margin: 8px 0; }
-.row { display:flex; flex-wrap:wrap; gap: 8px; align-items:center; margin: 8px 0; }
-button, select { min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--control); background: var(--raised); color: var(--text); font: inherit; }
-button:disabled { opacity: .5; }
-button:focus-visible, select:focus-visible, pre:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-label { color: var(--text2); }
-.meter { height: 12px; background: var(--raised); border-radius: 999px; overflow: hidden; margin: 8px 0; border:1px solid var(--control); }
-.levelBar { height: 100%; width: 0%; background: #4FE3C8; }
-pre { white-space: pre-wrap; word-break: break-word; background: var(--raised); border-radius: 12px; padding: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8125rem; color: var(--text2); max-height: 420px; overflow:auto; }
-footer { color: var(--muted); }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(120% 55% at 50% 0%, #0E1A2E 0%, var(--bg) 62%) fixed, var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.top { display: flex; justify-content: space-between; align-items: center; }
+.brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: .8rem; color: var(--text2); }
+.tag { font-size: .75rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+
+/* The orb is the centrepiece: about 84% of phone width, centred. */
+.stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 4px; }
+.orb-wrap { width: min(84vw, 380px); aspect-ratio: 1 / 1; display: grid; place-items: center; }
+#orb { width: 100%; height: 100%; display: block; }
+
+.status { font-size: 1.6rem; font-weight: 650; margin: 2px 0 0; letter-spacing: .01em; text-align: center; }
+.detail { margin: 0; color: var(--text2); text-align: center; font-size: .95rem; line-height: 1.45; min-height: 2.9em; max-width: 34ch; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+.card h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 10px; font-weight: 650; }
+
+button {
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--control);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-size: .95rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button[aria-pressed="true"] { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); background: var(--bluebg); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.danger { border-color: #8A4A4A; }
+button:focus-visible, summary:focus-visible, pre:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.row:first-of-type { margin-top: 0; }
+.row3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.note { color: var(--muted); font-size: .84rem; line-height: 1.45; margin: 10px 0 0; }
+.kv { display: flex; gap: 14px; flex-wrap: wrap; font-size: .88rem; color: var(--text2); margin-top: 10px; }
+.kv b { color: var(--text); font-weight: 650; }
+
+.meter { height: 10px; background: var(--raised); border: 1px solid var(--control); border-radius: 999px; overflow: hidden; margin-top: 12px; }
+.levelBar { height: 100%; width: 0; background: #4FE3C8; }
+
+details.card summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 650; color: var(--text2); list-style-position: inside; }
+details.card[open] summary { margin-bottom: 8px; }
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--raised);
+  border-radius: 12px;
+  padding: 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  color: var(--text2);
+  max-height: 320px;
+  overflow: auto;
+  margin: 10px 0 0;
+}
+
+@media (min-width: 600px) {
+  .app { padding-top: 24px; }
+}
+@media (max-width: 360px) {
+  .modes { grid-template-columns: repeat(2, 1fr); }
+  .row3 { grid-template-columns: 1fr; }
+  .status { font-size: 1.4rem; }
+}

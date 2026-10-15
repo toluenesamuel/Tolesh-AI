@@ -1,23 +1,18 @@
-# Phone probe: orb and basic audio (throwaway)
+# Orb demo (throwaway test build)
 
-Status: **not run yet**. Written for the F1 spike plan (`docs/F1_SPIKE_PLAN.md`) and the Android-only workflow (`docs/ANDROID_ONLY_WORKFLOW.md`). This is not the Tolesh app. It is a single static page used to check, on one Android phone, whether the animated orb draws at a usable frame rate and whether the browser can capture the microphone and stop playback when the user speaks.
+Status: **built, logic-tested in Node, not yet run in a browser or on a phone.** This is a single static page used to review the companion orb and its reactions. It is not the Tolesh app. Nothing is built or installed.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `index.html` | Page and strict Content Security Policy (no network, scripts only from this folder). |
-| `probe.css` | Layout. |
-| `probe.js` | Capability check, 5-minute orb run, microphone (only after a tap), test tone with barge-in, results. |
-| `orb.js` | Orb renderer: WebGL2 (`createOrb`) and a 2D canvas fallback (`createOrb2D`). |
+| `index.html` | Page layout and a strict Content Security Policy (no network, scripts only from this folder). |
+| `probe.css` | Mobile-first layout and styles. |
+| `probe.js` | Controls, microphone, simulated reply, pause, stop, reset, frame-rate check, results. |
+| `orb.js` | Orb renderer: WebGL2 "Liquid Core" shader, with a Canvas 2D fallback. |
+| `state.js` | Pure logic: modes, colours, motion targets, easing, speech envelope. No DOM. |
 | `meter-worklet.js` | AudioWorklet that computes a level (RMS) and posts numbers only. It outputs silence. |
-
-## What it does not do
-
-- It does not upload, record, or store audio, and it does not store results. The page's CSP sets `connect-src 'none'`.
-- It does not start the microphone on page load. The microphone starts only after the user taps "Turn on microphone" and allows the browser prompt.
-- It does not install anything, use a build step, or load code from any other site.
-- It is not a Tauri or Capacitor test. Those need their own runs (see `docs/F1_SPIKE_PLAN.md`).
+| `tests/demo.test.mjs` | Node built-in tests (16). They check logic and wiring only. |
 
 ## Run it (no installs)
 
@@ -28,22 +23,51 @@ cd spikes/phone-probe
 python3 -m http.server 8080 --bind 0.0.0.0
 ```
 
-Open the preview link shown by the sandbox (an `https://` address). Microphone access needs a secure context, so use the HTTPS preview link, not plain `http://`.
+Open the preview link for port 8080. Microphone access needs the secure `https://` preview link, not plain `http://`.
 
-## Test steps (about 15 minutes)
+Logic tests (needs Node, no installs):
 
-1. Read section 1 (browser check). Note `webgl2`, `audioWorklet`, and `getUserMedia`.
-2. Note the battery percentage. Tap **Start 5-minute orb run**. Keep the screen on. The state changes every 10 s. Let it finish, or tap **Stop run**. Note the battery again.
-3. Tap **Turn on microphone** and allow access. If denied, record the error name and continue; the tone test still runs.
-4. Stay quiet and tap **Calibrate noise**. Wait 2 s.
-5. Tap **Play test tone**, then speak loudly or hold the phone near the speaker. Record whether the tone stops and after how long (`msSinceToneStart`).
-6. Repeat step 5 with earphones, if available. Record that as a separate note.
-7. Tap **Copy results** and paste the JSON into the chat. Delete the user-agent line first if you prefer.
+```bash
+node --test tests/demo.test.mjs
+```
 
-Stopping: the orb run, the microphone, and the tone all stop as soon as the page is hidden or closed.
+## How to test each reaction
+
+Tap a button in the **Reaction** card. Each one changes the orb and its status text.
+
+1. **Idle**: slow breathing, slow inner glow.
+2. **Listening**: a teal rim and a brighter halo. Without the microphone, the glow pulses gently. With it on, the glow follows your voice.
+3. **Processing**: amber tint, and colour circulates inside the orb. No audio is used.
+4. **Speaking**: the orb pulses on its own with no audio. Use *Simulate reply* for a real-audio test.
+5. **Acting**: a steady lime arc sweeps round the orb.
+6. **Error**: coral rim, calm shape, slightly dimmer. No flashing. Tap *Idle* to clear it.
+
+### Microphone
+
+1. Tap **Start microphone**. Your browser asks for permission. Nothing listens before this tap.
+2. The level bar shows the input. Tapping **Stop microphone** stops the tracks and returns the orb to Idle.
+3. Optional: stay quiet and tap **Calibrate quiet**, then speak over a *Simulate reply*. Speech above the calibrated threshold stops the test voice and switches the orb to Listening.
+
+### Simulated reply
+
+1. Tap **Simulate reply**. An 8-second quiet test voice plays. The orb follows its real output level.
+2. Tap **Stop reply** to cancel. The voice fades out over about 0.15 s.
+
+### Stop, pause and reset
+
+- **Pause**: freezes and dims the orb. Tap **Resume** to continue.
+- **Stop all**: turns off the microphone and the test voice and returns to Idle.
+- **Reset demo**: does the same and clears the results.
+- The page also stops the microphone and the test voice, and pauses the orb, when it is hidden or closed.
+
+### Frame rate and results
+
+- **Measure frame rate (20 s)** records the median frame rate and the share of slow frames.
+- **Copy results** copies the JSON log. Nothing is uploaded or stored.
 
 ## Limits
 
-- Software timings only (`requestAnimationFrame` intervals, AudioWorklet message lag). Hardware audio latency, thermal throttling, GPU time, and battery drain over time are not measured. Those need `adb` or a physical measurement, not this page.
-- The barge-in trigger measures the microphone level. A speaker's own sound can trigger it (echo). The result records whether this happened; it does not separate echo from speech.
-- The results depend on the browser. Record the Chrome or WebView version shown in the user-agent line.
+- Logic tests run in Node. They do not check the GPU shader, WebGL, the microphone, or audio playback in a browser. Those need a browser run on the phone.
+- The results show software timings only. They do not measure hardware audio latency, heat, or battery drain.
+- Echo: the phone speaker can trigger the interruption check. Use earphones for a cleaner test.
+- Reduced motion is honoured. The orb then holds still and redraws only when its state or level changes.

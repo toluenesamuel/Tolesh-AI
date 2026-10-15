@@ -3,81 +3,90 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- Content Security Policy: only this origin's scripts and styles; no network requests from the page. -->
+<!-- Only this folder's scripts and styles. No network requests from the page. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'self' blob:; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<title>Tolesh orb and audio probe (throwaway)</title>
+<meta name="theme-color" content="#07090E">
+<title>Tolesh orb demo (test build)</title>
 <link rel="stylesheet" href="probe.css">
 <script type="module" src="probe.js"></script>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Orb and audio probe</h1>
-    <p class="notice"><strong>Throwaway test page.</strong> It is not the Tolesh app. The microphone is off until you tap the microphone button and allow access. Microphone audio is processed on this phone only. Nothing is uploaded, recorded or stored.</p>
+<div class="app">
+
+  <header class="top">
+    <span class="brand">Tolesh</span>
+    <span class="tag">Orb demo · test build</span>
   </header>
 
-  <section aria-labelledby="caps-h">
-    <h2 id="caps-h">1. Browser check</h2>
-    <ul id="caps" class="caps"><li>Checking…</li></ul>
-  </section>
-
-  <section aria-labelledby="orb-h">
-    <h2 id="orb-h">2. Orb</h2>
+  <section class="stage" id="stage" data-mode="idle" aria-labelledby="status">
     <div class="orb-wrap">
-      <canvas id="orb" role="img" aria-label="Animated orb test. The current state is written below."></canvas>
+      <canvas id="orb" role="img" aria-label="Tolesh companion orb. Its current state is written below."></canvas>
     </div>
-    <p id="state" class="state" aria-live="polite">State: idle</p>
-    <div class="row">
-      <button id="runBtn" type="button">Start 5-minute orb run</button>
-      <button id="stopRunBtn" type="button" disabled>Stop run</button>
-    </div>
-    <div class="row">
-      <label for="scale">Resolution</label>
-      <select id="scale">
-        <option value="1" selected>100%</option>
-        <option value="0.75">75%</option>
-        <option value="0.5">50%</option>
-      </select>
-    </div>
-    <p class="hint">During a run the state changes every 10 seconds. Keep the screen on and the phone at normal brightness. Note the battery percentage before and after.</p>
+    <h1 id="status" class="status" aria-live="polite">Idle</h1>
+    <p id="statusDetail" class="detail">Resting. Slow breathing and a slow inner glow.</p>
   </section>
 
-  <section aria-labelledby="mic-h">
-    <h2 id="mic-h">3. Microphone</h2>
-    <p class="hint">Tap the button below. Your phone will ask for microphone permission. Nothing listens until you allow it.</p>
+  <section class="card" aria-labelledby="modes-h">
+    <h2 id="modes-h">Reaction</h2>
+    <div class="modes" role="group" aria-label="Choose a reaction">
+      <button type="button" data-mode="idle" aria-pressed="true">Idle</button>
+      <button type="button" data-mode="listening" aria-pressed="false">Listening</button>
+      <button type="button" data-mode="processing" aria-pressed="false">Processing</button>
+      <button type="button" data-mode="speaking" aria-pressed="false">Speaking</button>
+      <button type="button" data-mode="acting" aria-pressed="false">Acting</button>
+      <button type="button" data-mode="error" aria-pressed="false">Error</button>
+    </div>
+    <p class="note">Speaking without a test voice pulses on its own. Use “Simulate reply” to make the orb react to real audio from this phone.</p>
+  </section>
+
+  <section class="card" aria-labelledby="mic-h">
+    <h2 id="mic-h">Microphone</h2>
     <div class="row">
-      <button id="micOn" type="button">Turn on microphone (asks permission)</button>
-      <button id="micOff" type="button" disabled>Turn off microphone</button>
+      <button type="button" id="micOn">Start microphone</button>
+      <button type="button" id="micOff" disabled>Stop microphone</button>
     </div>
     <div class="meter" aria-hidden="true"><div id="levelBar" class="levelBar"></div></div>
-    <p id="levelText" class="hint">Level: off</p>
+    <p id="levelText" class="note">Level: off</p>
+    <p id="micMsg" class="note" role="status">The microphone stays off until you tap “Start microphone”. Your browser then asks for permission.</p>
     <div class="row">
-      <button id="calBtn" type="button" disabled>Calibrate noise (stay quiet 2 s)</button>
+      <button type="button" id="calBtn" disabled>Calibrate quiet (2 s)</button>
     </div>
+    <div class="kv"><span>Microphone: <b id="micState">off</b></span></div>
   </section>
 
-  <section aria-labelledby="tone-h">
-    <h2 id="tone-h">4. Test tone and barge-in</h2>
-    <p class="hint">Play a tone. If the microphone hears a sound above the calibrated threshold while the tone plays (your voice, or the phone's own speaker echo), the tone stops and the stop time is logged. Calibrate first, with the microphone on.</p>
+  <section class="card" aria-labelledby="voice-h">
+    <h2 id="voice-h">Simulated reply</h2>
+    <p class="note">Plays a quiet 8-second test voice through the speaker. The orb reacts to its real output level. If the microphone is on, speaking over the test voice interrupts it and switches the orb to Listening.</p>
     <div class="row">
-      <button id="toneBtn" type="button" disabled>Play test tone (10 s)</button>
-      <button id="toneStop" type="button" disabled>Stop tone now</button>
+      <button type="button" id="simBtn">Simulate reply</button>
+      <button type="button" id="simStop" disabled>Stop reply</button>
     </div>
+    <div class="kv"><span>Test voice: <b id="voiceState">idle</b></span></div>
   </section>
 
-  <section aria-labelledby="res-h">
-    <h2 id="res-h">5. Results</h2>
-    <p class="hint">Results stay on this page. Read them, then tap Copy and paste them into the chat. The copied text includes your browser's user-agent string. Delete that line if you prefer.</p>
+  <section class="card" aria-labelledby="ctl-h">
+    <h2 id="ctl-h">Controls</h2>
+    <div class="row row3">
+      <button type="button" id="pauseBtn" aria-pressed="false">Pause</button>
+      <button type="button" id="stopAllBtn">Stop all</button>
+      <button type="button" id="resetBtn" class="danger">Reset demo</button>
+    </div>
+    <p class="note">Stop all turns off the microphone and the test voice and returns to Idle. Reset demo does the same and also clears the results. Pause freezes and dims the orb. The orb also pauses when the page is hidden.</p>
+  </section>
+
+  <details class="card">
+    <summary>Diagnostics and results</summary>
     <div class="row">
-      <button id="copyBtn" type="button">Copy results</button>
+      <button type="button" id="fpsBtn">Measure frame rate (20 s)</button>
+    </div>
+    <p class="note">Frame rate: <span id="fpsResult">not run yet</span></p>
+    <div class="row">
+      <button type="button" id="copyBtn">Copy results</button>
     </div>
     <pre id="results" tabindex="0" aria-label="Results">No results yet.</pre>
-  </section>
+  </details>
 
-  <footer>
-    <p class="hint">Software timings only. Hardware audio latency, exact thermal state and GPU time are not measured here.</p>
-  </footer>
-</main>
+</div>
 </body>
 </html>

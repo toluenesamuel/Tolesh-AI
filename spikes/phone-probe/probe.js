@@ -1,36 +1,44 @@
-// Throwaway Android probe for the orb and basic audio (docs/F1_SPIKE_PLAN.md WS-A and WS-B).
-// Privacy: microphone access is requested only after a tap. Audio is processed on this device,
-// is never uploaded (connect-src is 'none' in the page CSP), and is never stored. Only numbers
-// are kept, and they stay on the page until you copy them.
-import { createOrb, createOrb2D, STATES } from './orb.js';
+// Orb demo (throwaway test build under spikes/phone-probe/ only).
+// Privacy: the microphone is requested only after a tap on "Start microphone".
+// Microphone audio is processed on this device. Nothing is uploaded, recorded or stored.
+// The page's CSP sets connect-src 'none'.
+import { createOrb, createOrb2D } from './orb.js';
+import { MODES, LABELS, MOTION_TEXT, targetsFor, speechEnvelope, rmsToLevel, clamp } from './state.js';
 
 const $ = (id) => document.getElementById(id);
-const RUN_MS = 5 * 60 * 1000;          // 5-minute orb run
-const STATE_EVERY_MS = 10 * 1000;      // state change interval during a run
-const RUN_ORDER = ['idle', 'listening', 'thinking', 'speaking', 'acting', 'error'];
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-const R = {
-  note: 'Throwaway F1 phone probe. Software timings only. Hardware latency, thermal state and GPU time are not measured.',
-  startedAt: new Date().toISOString(),
-  caps: {}, orb: null, mic: { events: [] }, tone: { plays: 0, stops: [] },
-};
-
-// ---------- helpers
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const T0 = performance.now();
+const rnd = (x, d = 2) => (x == null || !isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
 const pct = (a, p) => {
   if (!a.length) return null;
   const s = [...a].sort((x, y) => x - y);
   return s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))];
 };
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const rnd = (x, d = 2) => (x == null || !isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
-const sinceStart = () => Math.round(performance.now());
 
-function showResults() {
+const R = {
+  note: 'Throwaway orb demo. Software timings only. Nothing is uploaded or stored. Microphone audio is processed on this device.',
+  startedAt: new Date().toISOString(),
+  caps: {},
+  events: [],
+  calibration: null,
+  frameRate: null,
+};
+
+function renderResults() {
   $('results').textContent = JSON.stringify(R, null, 2);
 }
+function log(type, detail = {}) {
+  R.events.push({ atMs: Math.round(performance.now() - T0), type, ...detail });
+  if (R.events.length > 300) R.events.shift();
+  renderResults();
+}
 
-// ---------- 1. browser check
+// Unexpected JavaScript errors are written to the results, so they can be copied.
+window.addEventListener('error', (e) => log('js-error', { message: String(e.message).slice(0, 200), line: e.lineno }));
+window.addEventListener('unhandledrejection', (e) => log('js-error', { message: String(e.reason).slice(0, 200) }));
+
+// ---------- capabilities
 function checkCaps() {
   const probe = document.createElement('canvas');
   R.caps = {
@@ -39,183 +47,45 @@ function checkCaps() {
     audioWorklet: typeof AudioWorkletNode === 'function',
     getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
     audioContext: typeof (window.AudioContext || window.webkitAudioContext) === 'function',
-    reducedMotionOS: reduceMotion,
-    viewportCss: `${innerWidth}x${innerHeight}`,
+    reducedMotion: reduced,
     devicePixelRatio: window.devicePixelRatio,
-    hardwareConcurrency: navigator.hardwareConcurrency ?? null,
-    deviceMemoryGB: navigator.deviceMemory ?? null,
+    viewport: `${innerWidth}x${innerHeight}`,
     userAgent: navigator.userAgent,
   };
-  const ul = $('caps');
-  ul.innerHTML = '';
-  for (const [k, v] of Object.entries(R.caps)) {
-    const li = document.createElement('li');
-    li.textContent = `${k}: ${v}`;
-    ul.appendChild(li);
-  }
 }
 
-// ---------- 2. orb
+// ---------- orb
 const canvas = $('orb');
 let orb = null;
 try {
   orb = createOrb(canvas);
-  if (!orb) orb = createOrb2D(canvas);
 } catch (e) {
-  R.orb = { rendererError: String(e).slice(0, 300) };
-  orb = createOrb2D(canvas);
+  log('renderer-error', { message: String(e).slice(0, 200) });
+  orb = null;
 }
-if (!orb) {
-  $('state').textContent = 'No WebGL2 or 2D canvas: orb cannot draw';
-}
+if (!orb) orb = createOrb2D(canvas);
+const rendererKind = orb ? orb.kind : 'none';
 
-let run = null;          // active 5-minute run
-let manualState = 'idle';
-let micLevel = 0;        // smoothed, 0..1
-let lastRms = 0;
-let lastDrawKey = '';
-let lastLevelUiT = 0;
-
-function setStateLabel(name) {
-  $('state').textContent = `State: ${name}${run ? ' (run)' : ''}`;
-}
-
-function startRun() {
-  if (run || !orb) return;
-  const now = performance.now();
-  run = {
-    t0: now, wall: new Date().toISOString(), scale: Number($('scale').value),
-    raf: [], draws: 0, hiddenViolations: 0,
-    state: RUN_ORDER[0], stateSince: now, stateMs: {},
-  };
-  $('runBtn').disabled = true;
-  $('stopRunBtn').disabled = false;
-  setStateLabel(run.state);
-  showResults();
-}
-
-function stopRun(reason) {
-  if (!run) return;
-  const now = performance.now();
-  run.stateMs[run.state] = (run.stateMs[run.state] || 0) + (now - run.stateSince);
-  const ts = run.raf;
-  const iv = [];
-  for (let i = 1; i < ts.length; i++) iv.push(ts[i] - ts[i - 1]);
-  const valid = iv.filter((x) => x < 1000);     // gaps of 1 s or more are pauses, not frames
-  const med = pct(valid, 0.5);
-  R.orb = {
-    startedAt: run.wall,
-    endReason: reason,
-    durationS: rnd((now - run.t0) / 1000, 1),
-    renderer: orb ? orb.kind : 'none',
-    resolutionScale: run.scale,
-    reducedMotionOS: reduceMotion,
-    refreshEstimateHz: med ? rnd(1000 / med, 1) : null,
-    frames: ts.length,
-    draws: run.draws,
-    meanFps: valid.length ? rnd(1000 / mean(valid), 1) : null,
-    medianFps: med ? rnd(1000 / med, 1) : null,
-    p95IntervalMs: rnd(pct(valid, 0.95)),
-    maxIntervalMs: valid.length ? rnd(Math.max(...valid)) : null,
-    droppedPct: med && valid.length ? rnd((100 * valid.filter((x) => x > 1.5 * med).length) / valid.length, 2) : null,
-    pausesOver1s: iv.length - valid.length,
-    stateSeconds: Object.fromEntries(Object.entries(run.stateMs).map(([k, v]) => [k, rnd(v / 1000, 1)])),
-    framesWhileHiddenViolations: run.hiddenViolations,
-    rendererErrorBeforeRun: R.orb && R.orb.rendererError ? R.orb.rendererError : undefined,
-  };
-  run = null;
-  $('runBtn').disabled = false;
-  $('stopRunBtn').disabled = true;
-  setStateLabel(manualState);
-  showResults();
-}
-
-function changeRunState(want, now) {
-  run.stateMs[run.state] = (run.stateMs[run.state] || 0) + (now - run.stateSince);
-  run.state = want;
-  run.stateSince = now;
-  setStateLabel(want);
-}
-
-function levelFor(name, now) {
-  if (name === 'listening') return micStream ? micLevel : 0.3 + 0.2 * Math.sin(now / 500);
-  if (name === 'thinking' || name === 'acting') return 0.05;
-  return 0;
-}
-
-function frame(now) {
-  requestAnimationFrame(frame);
-  if (run) {
-    if (document.hidden) run.hiddenViolations++;
-    run.raf.push(now);
-    const el = now - run.t0;
-    if (el >= RUN_MS) {
-      stopRun('completed 5 minutes');
-    } else {
-      const want = RUN_ORDER[Math.floor(el / STATE_EVERY_MS) % RUN_ORDER.length];
-      if (want !== run.state) changeRunState(want, now);
-    }
-  }
-
-  // Microphone level for the orb and the meter (no DOM work more than 10 times per second).
-  if (micStream) {
-    if (analyser) lastRms = rmsFromAnalyser();
-    micLevel = micLevel * 0.8 + Math.min(1, lastRms * 6) * 0.2;
-    if (now - lastLevelUiT > 100) {
-      lastLevelUiT = now;
-      $('levelBar').style.width = `${Math.round(micLevel * 100)}%`;
-      $('levelText').textContent = `Level: ${lastRms.toFixed(3)} (rms)`;
-    }
-  }
-
-  if (!orb) return;
-  const name = run ? run.state : manualState;
-  const S = STATES[name];
-  const level = levelFor(name, now);
-  // Speaking reacts to the real test-tone output when it plays. Otherwise a simulated pulse is used.
-  let speak = 0;
-  if (name === 'speaking') {
-    if (toneNodes && outAnalyser) speak = Math.min(1, rmsOf(outAnalyser) * 4);
-    else speak = 0.5 + 0.5 * Math.sin((now / 1000) * 6) * Math.sin((now / 1000) * 1.7);
-  }
-  const p = {
-    now,
-    speed: S.speed,
-    level, speak, active: S.active, error: S.error, color: S.color,
-    reduced: reduceMotion,
-  };
-  // With reduced motion on, draw only when the visible state or level changes (no continuous animation).
-  const key = `${name}|${reduceMotion ? 'static' : 'anim'}|${Math.round(level * 50)}|${Math.round(speak * 50)}`;
-  if (!reduceMotion || key !== lastDrawKey) {
-    orb.draw(p);
-    lastDrawKey = key;
-    if (run) run.draws++;
-  }
-}
-
-// ---------- 3. microphone (only after an explicit tap)
+// ---------- state
+let mode = 'idle';
+let paused = false;
+let micDenied = false;
 let ctx = null;
-let micStream = null;
-let micSrc = null;
-let meterNode = null;
-let analyser = null;
-let muteGain = null;
-let micOnPerf = 0;
-let meterMsgs = 0;
-let lagSamples = [];
-let calibrating = false;
-let calSamples = [];
-let threshold = null;
-let bargeCount = 0;
-let micPath = null;
+let micStream = null, micSrc = null, meterNode = null, analyser = null, muteGain = null;
+let micOnPerf = 0, meterMsgs = 0, lagSamples = [];
+let micLevel = 0, lastRms = 0, meterUiT = 0;
+let calibrating = false, calSamples = [], threshold = null, bargeCount = 0;
+let sim = null;      // { osc, g, an, startPerf, timer }
+let fps = null;      // { t0, ts }
+let lastKey = '';
+
+const modeButtons = document.querySelectorAll('[data-mode]');
 
 async function ensureCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
   if (ctx.state !== 'running') await ctx.resume();
   return ctx;
 }
-
-function setLevelText(t) { $('levelText').textContent = t; }
 
 function rmsOf(an) {
   const buf = new Float32Array(an.fftSize);
@@ -224,7 +94,110 @@ function rmsOf(an) {
   for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
   return Math.sqrt(s / buf.length);
 }
-const rmsFromAnalyser = () => rmsOf(analyser);
+
+function setMicMsg(text) { $('micMsg').textContent = text; }
+
+// ---------- modes
+function setMode(next, reason) {
+  if (next === mode) { updateUi(); return; }
+  if (mode === 'speaking' && next !== 'speaking' && sim) simStop(`mode changed to ${next}`, null);
+  const prev = mode;
+  mode = next;
+  log('mode', { from: prev, to: next, reason });
+  updateUi();
+}
+
+// ---------- microphone (only after a tap)
+async function micStart() {
+  if (micStream) return;
+  if (!window.isSecureContext) {
+    setMicMsg('The microphone needs a secure (HTTPS) page. Open the preview link, not a plain http address.');
+    log('mic-blocked', { reason: 'not secure context' });
+    return;
+  }
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+    setMicMsg('This browser cannot use the microphone. Simulate reply still works.');
+    log('mic-blocked', { reason: 'no getUserMedia' });
+    return;
+  }
+  setMicMsg('Waiting for microphone permission…');
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: false,
+    });
+  } catch (e) {
+    micDenied = true;
+    log('mic-denied', { name: e.name });
+    setMicMsg(`Microphone not allowed (${e.name}). Simulate reply still works.`);
+    updateUi();
+    return;
+  }
+  micDenied = false;
+  micStream = stream;                       // assigned first, so a later failure still stops the tracks
+  try {
+    await ensureCtx();
+    const track = stream.getAudioTracks()[0];
+    const settings = track.getSettings();
+    delete settings.deviceId;
+    delete settings.groupId;
+    micSrc = ctx.createMediaStreamSource(stream);
+    muteGain = ctx.createGain();
+    muteGain.gain.value = 0;                 // silent sink: keeps the graph running without playing the mic
+    muteGain.connect(ctx.destination);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    micSrc.connect(analyser);
+    analyser.connect(muteGain);
+    let path = 'AnalyserNode';
+    try {
+      await ctx.audioWorklet.addModule('meter-worklet.js');
+      meterNode = new AudioWorkletNode(ctx, 'level-meter');
+      meterNode.port.onmessage = onMeter;
+      micSrc.connect(meterNode);
+      meterNode.connect(muteGain);
+      path = 'AudioWorklet';
+    } catch (e) {
+      log('worklet-unavailable', { message: String(e).slice(0, 160) });
+    }
+    micOnPerf = performance.now();
+    meterMsgs = 0;
+    lagSamples = [];
+    log('mic-on', { path, settings });
+  } catch (e) {
+    log('mic-error', { message: String(e).slice(0, 160) });
+    micStop('setup failed');
+    setMicMsg('The microphone could not start. Simulate reply still works.');
+    return;
+  }
+  setMicMsg('Microphone on. Speak or make a noise to see the orb react.');
+  setMode('listening', 'microphone on');
+  updateUi();
+}
+
+function micStop(reason = 'user') {
+  if (!micStream) return;
+  micStream.getTracks().forEach((t) => t.stop());
+  for (const n of [micSrc, meterNode, analyser, muteGain]) {
+    try { if (n) n.disconnect(); } catch (_) { /* already disconnected */ }
+  }
+  const secs = (performance.now() - micOnPerf) / 1000;
+  log('mic-off', {
+    reason,
+    meterMessagesPerSec: secs > 0 ? rnd(meterMsgs / secs, 1) : null,
+    captureLagMs: lagSamples.length
+      ? { p50: rnd(pct(lagSamples, 0.5)), p95: rnd(pct(lagSamples, 0.95)), samples: lagSamples.length }
+      : null,
+  });
+  micStream = null; micSrc = null; meterNode = null; analyser = null; muteGain = null;
+  micLevel = 0; lastRms = 0; calibrating = false; threshold = null; bargeCount = 0;
+  $('levelBar').style.width = '0%';
+  $('levelText').textContent = 'Level: off';
+  setMicMsg('Microphone off.');
+  if (mode === 'listening') setMode('idle', `microphone stopped (${reason})`);
+  updateUi();
+}
 
 function onMeter(e) {
   const { rms, t } = e.data;
@@ -235,199 +208,241 @@ function onMeter(e) {
     if (lagSamples.length > 5000) lagSamples.shift();
   }
   if (calibrating) calSamples.push(rms);
-  bargeCheck(rms);
+  // Interruption: sustained speech above the calibrated threshold stops the test voice.
+  if (sim && threshold !== null) {
+    if (rms > threshold) {
+      bargeCount++;
+      if (bargeCount >= 3) {
+        bargeCount = 0;
+        log('barge-in', {
+          msIntoReply: Math.round(performance.now() - sim.startPerf),
+          rms: rnd(rms, 4),
+          thresholdRms: rnd(threshold, 4),
+        });
+        simStop('barge-in: sound above threshold', 'listening');
+      }
+    } else {
+      bargeCount = 0;
+    }
+  }
 }
 
-async function micOn() {
-  if (micStream) return;
-  if (!window.isSecureContext) {
-    setLevelText('Microphone needs a secure (HTTPS) page.');
-    return;
-  }
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false,
-    });
-  } catch (e) {
-    R.mic.error = `${e.name}`;
-    R.mic.events.push({ event: 'denied-or-failed', name: e.name, atMs: sinceStart() });
-    setLevelText(`Microphone not allowed (${e.name}). The orb and tone tests still work.`);
-    showResults();
-    return;
-  }
-  await ensureCtx();
-  micOnPerf = performance.now();
-  meterMsgs = 0;
-  lagSamples = [];
-  const track = micStream.getAudioTracks()[0];
-  const s = track.getSettings();
-  delete s.deviceId;
-  delete s.groupId;
-  R.mic.settingsGranted = s;                       // which constraints the browser honoured
-  R.mic.sampleRate = ctx.sampleRate;
-  micSrc = ctx.createMediaStreamSource(micStream);
-  muteGain = ctx.createGain();
-  muteGain.gain.value = 0;                         // silent sink: keeps the graph running, never plays mic audio
-  muteGain.connect(ctx.destination);
-  try {
-    await ctx.audioWorklet.addModule('meter-worklet.js');
-    meterNode = new AudioWorkletNode(ctx, 'level-meter');
-    meterNode.port.onmessage = onMeter;
-    micSrc.connect(meterNode).connect(muteGain);
-    micPath = 'AudioWorklet';
-  } catch (e) {
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 512;
-    micSrc.connect(analyser).connect(muteGain);
-    micPath = 'AnalyserNode fallback';
-    R.mic.workletError = String(e).slice(0, 200);
-  }
-  R.mic.path = micPath;
-  R.mic.events.push({ event: 'on', atMs: sinceStart() });
-  $('micOn').disabled = true;
-  $('micOff').disabled = false;
-  $('calBtn').disabled = false;
-  setLevelText('Level: listening');
-  showResults();
-}
-
-function micOff(reason = 'user') {
-  if (!micStream) return;
-  if (toneNodes) toneStop(`mic off (${reason})`);
-  const secs = (performance.now() - micOnPerf) / 1000;
-  micStream.getTracks().forEach((t) => t.stop());
-  for (const n of [micSrc, meterNode, analyser, muteGain]) {
-    try { if (n) n.disconnect(); } catch (_) { /* already disconnected */ }
-  }
-  R.mic.meterMessagesPerSec = secs > 0 ? rnd(meterMsgs / secs, 1) : null;
-  R.mic.captureToMainThreadMs = lagSamples.length
-    ? { p50: rnd(pct(lagSamples, 0.5)), p95: rnd(pct(lagSamples, 0.95)), max: rnd(Math.max(...lagSamples)), samples: lagSamples.length }
-    : null;
-  R.mic.events.push({ event: 'off', reason, atMs: sinceStart() });
-  micStream = null; micSrc = null; meterNode = null; analyser = null; muteGain = null;
-  micLevel = 0; lastRms = 0; calibrating = false; threshold = null; bargeCount = 0;
-  $('micOn').disabled = false;
-  $('micOff').disabled = true;
-  $('calBtn').disabled = true;
-  $('levelBar').style.width = '0%';
-  setLevelText('Level: off');
-  showResults();
-}
-
-function startCalibration() {
-  if (!micStream || calibrating || toneNodes) return;
+function calibrate() {
+  if (!micStream || calibrating) return;
   calibrating = true;
   calSamples = [];
-  setLevelText('Calibrating: stay quiet for 2 seconds');
+  setMicMsg('Calibrating: stay quiet for 2 seconds…');
+  updateUi();
   setTimeout(() => {
     calibrating = false;
     if (!micStream) return;
-    const p95 = pct(calSamples, 0.95);
-    threshold = Math.max(0.02, (p95 || 0) * 3);
-    R.mic.calibration = {
+    const p95 = pct(calSamples, 0.95) || 0;
+    threshold = Math.max(0.02, p95 * 3);
+    R.calibration = {
       samples: calSamples.length,
       meanRms: rnd(mean(calSamples), 4),
       p95Rms: rnd(p95, 4),
       thresholdRms: rnd(threshold, 4),
     };
-    setLevelText(`Calibrated. Threshold ${threshold.toFixed(3)} (rms)`);
-    showResults();
+    log('calibrated', R.calibration);
+    setMicMsg(`Calibrated. Interrupt threshold ${threshold.toFixed(3)}. Speak over a Simulate reply to test interruption.`);
+    updateUi();
   }, 2000);
 }
 
-// ---------- 4. test tone and barge-in
-let toneNodes = null;
-let toneTimer = null;
-let toneStartPerf = 0;
-let bargeArmed = false;
-let outAnalyser = null;
-
-async function toneStart() {
-  if (toneNodes) return;
+// ---------- simulated reply (test voice, real audio output)
+async function simStart() {
+  if (sim) return;
   await ensureCtx();
+  const dur = 8;
+  const t0 = ctx.currentTime + 0.05;
   const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.value = 440;
+  osc.type = 'triangle';
+  osc.frequency.value = 196;
   const g = ctx.createGain();
   g.gain.value = 0;
-  osc.connect(g).connect(ctx.destination);
-  outAnalyser = ctx.createAnalyser();          // reads the tone's output level for the orb
-  outAnalyser.fftSize = 512;
-  g.connect(outAnalyser);
-  const t0 = ctx.currentTime + 0.05;
-  for (let i = 0; i < 7; i++) {               // 1 s on, 0.5 s off, for about 10 s
-    const s = t0 + i * 1.5;
-    g.gain.setValueAtTime(0.2, s);
-    g.gain.setValueAtTime(0, s + 1.0);
-  }
+  const N = dur * 100;
+  const curve = new Float32Array(N + 1);
+  for (let i = 0; i <= N; i++) curve[i] = 0.2 * speechEnvelope(i / 100);
+  g.gain.setValueCurveAtTime(curve, t0, dur);
+  const an = ctx.createAnalyser();
+  an.fftSize = 512;
+  osc.connect(g);
+  g.connect(ctx.destination);
+  g.connect(an);
   osc.start(t0);
-  osc.stop(t0 + 10.5);
-  toneNodes = { osc, g };
-  toneStartPerf = performance.now();
-  bargeArmed = !!micStream && threshold !== null;
-  R.tone.plays++;
-  R.tone.lastPlay = { bargeInArmed: bargeArmed, micOn: !!micStream, calibrated: threshold !== null };
-  $('toneBtn').disabled = true;
-  $('toneStop').disabled = false;
-  toneTimer = setTimeout(() => toneStop('finished 10 s'), 10500);
-  showResults();
+  osc.stop(t0 + dur + 0.1);
+  sim = {
+    osc, g, an,
+    startPerf: performance.now(),
+    timer: setTimeout(() => simStop('finished 8 s', 'idle'), (dur + 0.3) * 1000),
+  };
+  log('voice-start', { micOn: !!micStream, calibrated: threshold !== null });
+  setMode('speaking', 'simulated reply');
+  updateUi();
 }
 
-function toneStop(reason, extra = {}) {
-  if (!toneNodes) return;
-  const t0 = performance.now();
-  const { osc, g } = toneNodes;
-  g.gain.cancelScheduledValues(ctx.currentTime);
-  g.gain.setValueAtTime(0, ctx.currentTime);
-  try { osc.stop(); } catch (_) { /* already stopped */ }
-  osc.disconnect();
-  g.disconnect();
-  try { if (outAnalyser) outAnalyser.disconnect(); } catch (_) { /* already disconnected */ }
-  outAnalyser = null;
-  clearTimeout(toneTimer);
-  toneNodes = null;
-  bargeArmed = false;
-  R.tone.stops.push({
-    reason,
-    msSinceToneStart: Math.round(t0 - toneStartPerf),
-    scheduleMs: rnd(performance.now() - t0, 2),   // software only: time to schedule silence
-    ...extra,
-  });
-  $('toneBtn').disabled = false;
-  $('toneStop').disabled = true;
-  showResults();
+function simStop(reason, nextMode = 'idle') {
+  if (!sim) return;
+  const s = sim;
+  sim = null;
+  clearTimeout(s.timer);
+  const now = ctx.currentTime;
+  s.g.gain.cancelScheduledValues(now);
+  s.g.gain.setTargetAtTime(0, now, 0.02);      // quick fade, so the cut is not a click
+  try { s.osc.stop(now + 0.15); } catch (_) { /* already stopped */ }
+  setTimeout(() => {
+    for (const n of [s.osc, s.g, s.an]) { try { n.disconnect(); } catch (_) { /* ignore */ } }
+  }, 250);
+  log('voice-stop', { reason, ms: Math.round(performance.now() - s.startPerf) });
+  if (nextMode && mode === 'speaking') setMode(nextMode, reason);
+  updateUi();
 }
 
-function bargeCheck(rms) {
-  if (!toneNodes || !bargeArmed || threshold === null) return;
-  if (rms > threshold) {
-    bargeCount++;
-    if (bargeCount >= 3) {                       // about 30 ms above threshold
-      bargeCount = 0;
-      toneStop('mic trigger (your voice or echo)', { rms: rnd(rms, 4), thresholdRms: rnd(threshold, 4) });
-    }
-  } else {
-    bargeCount = 0;
+// ---------- controls
+function stopAll() {
+  simStop('stop all', null);
+  micStop('stop all');
+  paused = false;
+  setMode('idle', 'stop all');
+  log('stop-all', {});
+  updateUi();
+}
+
+function resetDemo() {
+  stopAll();
+  R.events = [];
+  R.calibration = null;
+  R.frameRate = null;
+  threshold = null;
+  log('reset', {});
+  updateUi();
+}
+
+function togglePause() {
+  paused = !paused;
+  log('pause', { paused });
+  updateUi();
+}
+
+function hideStop(reason) {
+  if (sim) simStop(reason, null);
+  if (micStream) micStop(reason);
+  if (!paused) { paused = true; log('paused-by-page', { reason }); }
+  updateUi();
+}
+
+function fpsStart() {
+  if (fps) return;
+  fps = { t0: null, ts: [] };
+  log('frame-rate-start', {});
+  updateUi();
+}
+
+function fpsFinish() {
+  const ts = fps.ts;
+  const iv = [];
+  for (let i = 1; i < ts.length; i++) iv.push(ts[i] - ts[i - 1]);
+  const valid = iv.filter((x) => x < 1000);
+  const med = pct(valid, 0.5);
+  R.frameRate = {
+    seconds: 20,
+    frames: ts.length,
+    medianFps: med ? rnd(1000 / med, 1) : null,
+    meanFps: valid.length ? rnd(1000 / mean(valid), 1) : null,
+    droppedPct: med && valid.length ? rnd((100 * valid.filter((x) => x > 1.5 * med).length) / valid.length, 1) : null,
+    renderer: rendererKind,
+    devicePixelRatio: window.devicePixelRatio,
+  };
+  fps = null;
+  log('frame-rate', R.frameRate);
+  updateUi();
+}
+
+// ---------- UI
+function detailText() {
+  if (mode === 'listening') return micStream ? 'Listening. The rim and glow follow the microphone level.' : 'Attentive pulse. Start the microphone to react to your voice.';
+  if (mode === 'speaking') return sim ? 'Speaking. Reacting to the test voice playing from this phone.' : 'Speaking pulse, with no audio. Use Simulate reply to react to real sound.';
+  return MOTION_TEXT[mode];
+}
+
+function updateUi() {
+  for (const b of modeButtons) {
+    const on = b.dataset.mode === mode;
+    b.setAttribute('aria-pressed', String(on));
   }
+  $('stage').dataset.mode = mode;
+  $('status').textContent = LABELS[mode] + (paused ? ' (paused)' : '');
+  $('statusDetail').textContent = detailText();
+  $('micState').textContent = micStream ? 'on' : micDenied ? 'blocked' : 'off';
+  $('voiceState').textContent = sim ? 'playing' : 'idle';
+  $('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  $('pauseBtn').setAttribute('aria-pressed', String(paused));
+  $('micOn').disabled = !!micStream;
+  $('micOff').disabled = !micStream;
+  $('calBtn').disabled = !micStream || calibrating;
+  $('simBtn').disabled = !!sim;
+  $('simStop').disabled = !sim;
+  $('fpsBtn').disabled = !!fps;
+  $('fpsResult').textContent = fps ? 'measuring…' : R.frameRate
+    ? `${R.frameRate.medianFps} fps median, ${R.frameRate.droppedPct}% slow frames (${R.frameRate.renderer})`
+    : 'not run yet';
+}
+
+// ---------- frame loop
+function frame(now) {
+  requestAnimationFrame(frame);
+
+  if (fps) {
+    if (fps.t0 === null) fps.t0 = now;
+    fps.ts.push(now);
+    if (now - fps.t0 >= 20000) fpsFinish();
+  }
+
+  if (micStream) {
+    if (analyser) lastRms = rmsOf(analyser);
+    micLevel = micLevel * 0.8 + rmsToLevel(lastRms) * 0.2;
+    if (now - meterUiT > 100) {
+      meterUiT = now;
+      $('levelBar').style.width = `${Math.round(micLevel * 100)}%`;
+      $('levelText').textContent = `Level: ${lastRms.toFixed(3)} (rms)`;
+    }
+  }
+
+  let speak = 0;
+  if (sim) speak = clamp(rmsOf(sim.an) * 7);
+  else if (mode === 'speaking') speak = reduced ? 0.35 : speechEnvelope(now / 1000) * 0.7;
+
+  const level = micStream ? micLevel : (reduced ? 0.15 : 0.22 + 0.05 * Math.sin(now / 600));
+  const tgt = targetsFor(mode, { level, speak, paused, reduced });
+  tgt.now = now;
+
+  if (!orb) return;
+  if (reduced) {
+    // Reduced motion: draw only when the visible values change, not every frame.
+    const key = [mode, paused, Math.round(tgt.level * 40), Math.round(tgt.speak * 40)].join('|');
+    if (key === lastKey) return;
+    lastKey = key;
+  }
+  orb.draw(tgt);
 }
 
 // ---------- wiring
-$('runBtn').addEventListener('click', startRun);
-$('stopRunBtn').addEventListener('click', () => stopRun('stopped by user'));
-$('scale').addEventListener('change', () => {
-  const s = Number($('scale').value);
-  if (orb) orb.setScale(s);
-  if (run) R.orb = { ...(R.orb || {}), scaleChangedDuringRun: true };
-});
-$('micOn').addEventListener('click', micOn);
-$('micOff').addEventListener('click', () => micOff('user'));
-$('calBtn').addEventListener('click', startCalibration);
-$('toneBtn').addEventListener('click', toneStart);
-$('toneStop').addEventListener('click', () => toneStop('stopped by user'));
+for (const b of modeButtons) {
+  b.addEventListener('click', () => setMode(b.dataset.mode, 'button'));
+}
+$('micOn').addEventListener('click', micStart);
+$('micOff').addEventListener('click', () => micStop('user'));
+$('calBtn').addEventListener('click', calibrate);
+$('simBtn').addEventListener('click', () => { simStart().catch((e) => log('voice-error', { message: String(e).slice(0, 160) })); });
+$('simStop').addEventListener('click', () => simStop('stop reply', 'idle'));
+$('pauseBtn').addEventListener('click', togglePause);
+$('stopAllBtn').addEventListener('click', stopAll);
+$('resetBtn').addEventListener('click', resetDemo);
+$('fpsBtn').addEventListener('click', fpsStart);
 $('copyBtn').addEventListener('click', async () => {
   const txt = JSON.stringify(R, null, 2);
-  $('results').textContent = txt;
+  renderResults();
   try {
     await navigator.clipboard.writeText(txt);
     $('copyBtn').textContent = 'Copied';
@@ -437,20 +452,16 @@ $('copyBtn').addEventListener('click', async () => {
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    $('copyBtn').textContent = 'Copy blocked: text selected, copy manually';
+    $('copyBtn').textContent = 'Copy blocked: text selected';
   }
-  setTimeout(() => { $('copyBtn').textContent = 'Copy results'; }, 4000);
+  setTimeout(() => { $('copyBtn').textContent = 'Copy results'; }, 3000);
 });
 
-// Privacy and safety: stop the orb run, the mic and the tone as soon as the page is hidden or closed.
-function stopEverything(reason) {
-  if (run) stopRun(`page hidden or closed (${reason})`);
-  if (micStream) micOff(reason);
-  if (toneNodes) toneStop(`page hidden or closed (${reason})`);
-}
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopEverything('visibilitychange'); });
-addEventListener('pagehide', () => stopEverything('pagehide'));
+// Hidden or closed page: stop the microphone and the test voice, and pause the orb.
+document.addEventListener('visibilitychange', () => { if (document.hidden) hideStop('page hidden'); });
+addEventListener('pagehide', () => hideStop('page closed'));
 
 checkCaps();
-showResults();
+log('ready', { renderer: rendererKind, reducedMotion: reduced });
+updateUi();
 requestAnimationFrame(frame);
