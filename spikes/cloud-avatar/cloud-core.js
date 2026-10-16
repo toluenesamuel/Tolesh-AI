@@ -200,7 +200,7 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
     },
 
     frame(dt, t) {
-      dt = clamp(dt, 0, 0.05);
+      dt = clamp(dt, 0, 0.1); // at most 100 ms per step, so slow frames do not slow the animation much
       const S = STATES[state];
       const m = reduced ? 0 : 1;
 

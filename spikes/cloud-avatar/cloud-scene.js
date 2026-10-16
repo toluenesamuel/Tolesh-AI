@@ -91,7 +91,7 @@ function eyeMarkup(side, A) {
   const gazeKey = `gaze${side}`;
   return [
     // Socket shadow above the eye, so the eye sits into the cloud rather than on top of it.
-    el('ellipse', { cx: e.x, cy: e.y - 6, rx: EYE_RX + 5, ry: EYE_RY * 0.7, fill: '#2A3F66', 'fill-opacity': 0.3, filter: 'url(#cl-soft)' }, A, null, null),
+    el('ellipse', { cx: e.x, cy: e.y - 6, rx: EYE_RX + 6, ry: EYE_RY * 0.85, fill: 'url(#cl-socket)' }, A, null, null),
     `<g clip-path="url(#cl-lid-${side})">`,
     `<g clip-path="url(#cl-ell-${side})">`,
     el('ellipse', { cx: e.x, cy: e.y, rx: EYE_RX, ry: EYE_RY, fill: 'url(#cl-eye)' }, A, null, null),
@@ -139,8 +139,12 @@ export function cloudInnerMarkup(A = {}) {
       <stop offset="0" stop-color="#25395F"/>
       <stop offset="1" stop-color="#0A1224"/>
     </radialGradient>
-    <filter id="cl-soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="9"/></filter>
-    <filter id="cl-glow" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="7"/></filter>
+    <radialGradient id="cl-hi" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/><stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0.45"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cl-shade" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#1E3A6E" stop-opacity="0.24"/><stop offset="0.6" stop-color="#1E3A6E" stop-opacity="0.12"/><stop offset="1" stop-color="#1E3A6E" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cl-socket" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#2A3F66" stop-opacity="0.42"/><stop offset="1" stop-color="#2A3F66" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cl-ground" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#07102A" stop-opacity="0.6"/><stop offset="1" stop-color="#07102A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cl-cyan" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#6FD3FF" stop-opacity="0.9"/><stop offset="1" stop-color="#6FD3FF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cl-coral" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FF8A8A" stop-opacity="0.9"/><stop offset="1" stop-color="#FF8A8A" stop-opacity="0"/></radialGradient>
     <clipPath id="cl-clip">${clip}</clipPath>
     <clipPath id="cl-ell-L"><ellipse cx="${EYES.L.x}" cy="${EYES.L.y}" rx="${EYE_RX}" ry="${EYE_RY}"/></clipPath>
     <clipPath id="cl-ell-R"><ellipse cx="${EYES.R.x}" cy="${EYES.R.y}" rx="${EYE_RX}" ry="${EYE_RY}"/></clipPath>
@@ -148,15 +152,15 @@ export function cloudInnerMarkup(A = {}) {
     ${el('clipPath', { id: 'cl-lid-R' }, A, null, el('path', { d: '' }, A, 'lidR', null))}
   </defs>`;
 
-  const ground = el('ellipse', { cx: 180, cy: GROUND_Y, rx: 104, ry: 9, fill: '#07102A', 'fill-opacity': 0.34, filter: 'url(#cl-glow)' }, A, 'ground', null);
-  const glowCyan = el('ellipse', { cx: 180, cy: GROUND_Y + 2, rx: 78, ry: 6, fill: '#6FD3FF', 'fill-opacity': 0, filter: 'url(#cl-glow)' }, A, 'glowCyan', null);
-  const glowCoral = el('ellipse', { cx: 180, cy: GROUND_Y + 2, rx: 60, ry: 5, fill: '#FF8A8A', 'fill-opacity': 0, filter: 'url(#cl-glow)' }, A, 'glowCoral', null);
+  const ground = el('ellipse', { cx: 180, cy: GROUND_Y, rx: 104, ry: 9, fill: 'url(#cl-ground)', 'fill-opacity': 0.34 }, A, 'ground', null);
+  const glowCyan = el('ellipse', { cx: 180, cy: GROUND_Y + 2, rx: 78, ry: 6, fill: 'url(#cl-cyan)', 'fill-opacity': 0 }, A, 'glowCyan', null);
+  const glowCoral = el('ellipse', { cx: 180, cy: GROUND_Y + 2, rx: 60, ry: 5, fill: 'url(#cl-coral)', 'fill-opacity': 0 }, A, 'glowCoral', null);
 
   const bodyInner = [
     '<g clip-path="url(#cl-clip)">',
     `<rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#cl-body)"/>`,
-    '<ellipse cx="146" cy="82" rx="74" ry="34" fill="#FFFFFF" fill-opacity="0.9" filter="url(#cl-soft)"/>',
-    '<ellipse cx="190" cy="262" rx="176" ry="64" fill="#1E3A6E" fill-opacity="0.16" filter="url(#cl-soft)"/>',
+    '<ellipse cx="146" cy="82" rx="78" ry="38" fill="url(#cl-hi)"/>',
+    '<ellipse cx="190" cy="262" rx="186" ry="72" fill="url(#cl-shade)"/>',
     lobes,
     '</g>',
     eyeMarkup('L', A),

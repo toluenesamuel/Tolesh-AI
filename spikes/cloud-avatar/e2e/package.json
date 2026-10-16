@@ -1,0 +1,13 @@
+{
+  "name": "tolesh-cloud-avatar-e2e",
+  "private": true,
+  "description": "Browser test tooling for the cloud avatar prototype. Test-only. Not part of any app build.",
+  "type": "module",
+  "scripts": {
+    "test": "node run-browser-tests.mjs"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "153.0.0",
+    "puppeteer-core": "25.14.0"
+  }
+}
