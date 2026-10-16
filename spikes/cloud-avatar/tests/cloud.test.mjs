@@ -24,14 +24,20 @@ import {
   mulberry32,
 } from '../cloud-core.js';
 import {
-  LOBES,
+  OUTLINE_D,
+  OUTLINE_POINTS,
   EYES,
+  LENS,
+  IRIS,
   GAZE_MAX,
+  MOUTH,
   VIEW,
   cloudInnerMarkup,
   cloudStandaloneSvg,
   poseAttrs,
-  lidPathD,
+  outlineRadius,
+  lidD,
+  lidY,
   browD,
   smileD,
 } from '../cloud-scene.js';
@@ -48,42 +54,83 @@ function run(ctrl, seconds, start = 0) {
   return pose;
 }
 
-// ---------- shape and markup
+// ---------- shape and markup (v2: one cohesive silhouette, glasses, clipped lids)
 
-test('lobes are inside the viewBox and roughly centred on the cloud centre', () => {
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const l of LOBES) {
-    assert.ok(l.r > 0);
-    minX = Math.min(minX, l.x - l.r);
-    maxX = Math.max(maxX, l.x + l.r);
-    minY = Math.min(minY, l.y - l.r);
-    maxY = Math.max(maxY, l.y + l.r);
+function pointInPolygon(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
   }
+  return inside;
+}
+
+test('the body is one closed outline, inside the viewBox and centred on the cloud centre', () => {
+  assert.equal((OUTLINE_D.match(/M/g) ?? []).length, 1, 'one subpath');
+  assert.equal((OUTLINE_D.match(/Z/g) ?? []).length, 1, 'closed');
+  const xs = OUTLINE_POINTS.map((p) => p[0]);
+  const ys = OUTLINE_POINTS.map((p) => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
   assert.ok(minX >= 0 && maxX <= VIEW.w, `x extent ${minX}..${maxX}`);
   assert.ok(minY >= 0 && maxY <= VIEW.h, `y extent ${minY}..${maxY}`);
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  assert.ok(Math.abs(cx - CENTER.x) < 6, `cx ${cx}`);
-  assert.ok(Math.abs(cy - CENTER.y) < 14, `cy ${cy}`);
-  // The silhouette should be wider than it is tall (cloud, not a sphere).
-  assert.ok(maxX - minX > maxY - minY);
+  assert.ok(Math.abs((minX + maxX) / 2 - CENTER.x) < 6, 'horizontally centred');
+  assert.ok(maxX - minX > maxY - minY, 'wider than tall (cloud, not a sphere)');
 });
 
-test('both eyes sit fully inside the body', () => {
+test('the outline is a single silhouette: no overlapping circles form the body', () => {
+  const body = cloudInnerMarkup(poseAttrs(createCloudController().frame(0, 0)));
+  // The body fill appears exactly once, on the outline path. Old circle lobes are gone.
+  assert.equal(body.split('fill="url(#cl-body)"').length - 1, 1);
+  // Circles are only iris, pupil and glints, all well inside the lenses (radius under 6).
+  for (const m of body.matchAll(/<circle [^>]*r="([\d.]+)"/g)) assert.ok(Number(m[1]) < 6, `circle r=${m[1]}`);
+});
+
+test('the outline has no radius glitches: every sampled radius is positive and smooth', () => {
+  let prev = null;
+  for (let i = 0; i < 360; i++) {
+    const r = outlineRadius((i / 360) * Math.PI * 2);
+    assert.ok(r > 60 && r < 200, `radius ${r} at ${i}`);
+    if (prev !== null) assert.ok(Math.abs(r - prev) < 6, `radius jump ${r - prev} at ${i}`);
+    prev = r;
+  }
+});
+
+test('both eyes sit inside their lenses, with full iris travel, and inside the body', () => {
   for (const side of ['L', 'R']) {
     const e = EYES[side];
-    const inside = LOBES.some((l) => Math.hypot(e.x - l.x, e.y - l.y) + 16 < l.r + 4);
-    assert.ok(inside, `eye ${side} is not inside a lobe`);
+    const halfW = LENS.w / 2;
+    const halfH = LENS.h / 2;
+    assert.ok(IRIS.rx + GAZE_MAX.x < halfW - 4, `iris x travel fits lens ${side}`);
+    assert.ok(IRIS.ry + GAZE_MAX.y < halfH - 3, `iris y travel fits lens ${side}`);
+    assert.ok(pointInPolygon(e.x, e.y, OUTLINE_POINTS), `eye ${side} centre inside body`);
+    assert.ok(pointInPolygon(e.x - halfW, e.y - halfH, OUTLINE_POINTS), `lens ${side} corner inside body`);
+    assert.ok(pointInPolygon(e.x + halfW, e.y + halfH, OUTLINE_POINTS), `lens ${side} far corner inside body`);
   }
 });
 
-test('every data-k key used by the browser exists in the markup', () => {
+test('glasses: two lenses with electric-blue frames, a bridge and arms', () => {
+  const markup = cloudInnerMarkup({});
+  const lensRects = [...markup.matchAll(/<rect [^>]*rx="21"[^>]*stroke="url\(#cl-frame\)"/g)];
+  assert.equal(lensRects.length, 2, 'two framed lenses');
+  assert.match(markup, /<path d="M\d+(\.\d+)? \d+(\.\d+)? Q180 [\d.]+ \d+(\.\d+)? \d+(\.\d+)?" fill="none" stroke="url\(#cl-frame\)"/, 'bridge');
+  assert.equal((markup.match(/stroke="url\(#cl-frame\)"[^>]*stroke-linecap="round" opacity="0\.9"/g) ?? []).length, 2, 'two arms');
+  assert.match(markup, /#2FA6FF|#1A6FE8/, 'electric-blue accent present');
+});
+
+test('no SVG filters or blur: the design uses gradients only', () => {
+  const markup = cloudInnerMarkup(poseAttrs(createCloudController().frame(0, 0)));
+  assert.doesNotMatch(markup, /<filter|filter=|feGaussianBlur|feDrop/);
+  assert.doesNotMatch(cloudStandaloneSvg(poseAttrs({ ...createCloudController().frame(0, 0), wink: 1 })), /<filter|filter=/);
+});
+
+test('every data-k key used by the browser exists in the markup, with no duplicate attributes', () => {
   const markup = cloudInnerMarkup(poseAttrs(createCloudController().frame(0, 0)));
   const keys = [...markup.matchAll(/data-k="([^"]+)"/g)].map((m) => m[1]);
-  for (const k of ['body', 'ground', 'glowCyan', 'glowCoral', 'lidL', 'lidR', 'lidEdgeL', 'lidEdgeR', 'browL', 'browR', 'gazeL', 'gazeR', 'smile', 'mouthOpen']) {
+  for (const k of ['body', 'ground', 'glowCyan', 'glowCoral', 'lidL', 'lidR', 'browL', 'browR', 'gazeL', 'gazeR', 'smile', 'mouthOpen']) {
     assert.ok(keys.includes(k), `missing data-k ${k}`);
   }
-  // No duplicate attributes in one element (invalid XML), which would break the markup.
+  assert.equal(new Set(keys).size, keys.length, 'data-k keys are unique');
   for (const tag of markup.match(/<[a-zA-Z][^>]*>/g) ?? []) {
     const names = [...tag.matchAll(/ ([a-zA-Z:-]+)="/g)].map((m) => m[1]);
     assert.equal(new Set(names).size, names.length, `duplicate attribute in ${tag.slice(0, 80)}`);
@@ -103,31 +150,100 @@ test('standalone stills are well-formed SVG for every state pose', () => {
 
 // ---------- eyes, brows, mouth geometry
 
-test('closing the eye collapses the lid region to the centre line', () => {
-  const open = lidPathD('L', 1, 0);
-  const closed = lidPathD('L', 0.06, 0);
-  const yOf = (d) => Number(d.match(/^M[\d.-]+ ([\d.-]+)/)[1]);
-  assert.ok(yOf(closed) > yOf(open), 'closed lid must sit lower than open lid');
-  assert.ok(yOf(closed) > EYES.L.y - 3, 'closed lid is near the eye centre line');
+// Helpers: the lid cover is a polygon, so read its vertices.
+const pathYs = (d) => [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => Number(m[2]));
+const pathXs = (d) => [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => Number(m[1]));
+
+test('closing the eye covers the lens; open eyes have no lid cover at all', () => {
+  const closed = lidD('L', 0.06, 0);
+  assert.ok(Math.max(...pathYs(closed)) > EYES.L.y + 20, 'closed lid reaches the bottom of the lens');
+  assert.ok(Math.min(...pathYs(closed)) >= EYES.L.y - LENS.h / 2 - 0.5, 'cover stays inside the lens');
+  assert.equal(lidD('L', 1, 0), 'M0 0', 'fully open: nothing to draw');
+});
+
+test('the lid cover is cut from the lens shape, so it never leaves the glasses', () => {
+  for (const side of ['L', 'R']) for (const open of [0.2, 0.5, 0.8]) for (const tilt of [-0.8, 0, 0.8]) {
+    const d = lidD(side, open, tilt);
+    const e = EYES[side];
+    for (const x of pathXs(d)) assert.ok(Math.abs(x - e.x) <= LENS.w / 2 + 0.5, `x ${x} outside lens ${side}`);
+    for (const y of pathYs(d)) assert.ok(y >= e.y - LENS.h / 2 - 0.5 && y <= e.y + LENS.h / 2 + 0.5, `y ${y} outside lens ${side}`);
+  }
 });
 
 test('lid tilt raises the inner corner of each eye, not the outer corner', () => {
-  // Left eye: inner corner is on the right. Positive tilt should lift the right end of the edge.
-  const dl = lidPathD('L', 1, 0.8).match(/M([\d.-]+) ([\d.-]+) L([\d.-]+) ([\d.-]+)/);
-  assert.ok(Number(dl[4]) < Number(dl[2]), 'left eye: inner (right) end should be higher');
-  // Right eye: inner corner is on the left. The left end should be higher.
-  const dr = lidPathD('R', 1, 0.8).match(/M([\d.-]+) ([\d.-]+) L([\d.-]+) ([\d.-]+)/);
-  assert.ok(Number(dr[2]) < Number(dr[4]), 'right eye: inner (left) end should be higher');
+  // Left eye: inner corner is on the right, so its edge should be higher there.
+  const hw = LENS.w / 2;
+  assert.ok(lidY('L', 0.5, 0.8, hw) < lidY('L', 0.5, 0.8, -hw), 'left eye: inner (right) end higher');
+  // Right eye: inner corner is on the left.
+  assert.ok(lidY('R', 0.5, 0.8, -hw) < lidY('R', 0.5, 0.8, hw), 'right eye: inner (left) end higher');
 });
 
-test('brows and smile stay within the body', () => {
+test('a wink covers only the right eye', () => {
+  const base = { ...createCloudController().frame(0, 0), open: 1, lidTilt: 0 };
+  const A = poseAttrs({ ...base, wink: 1 });
+  assert.ok(Math.max(...pathYs(A.lidR.d)) > EYES.R.y + 20, 'right eye closed');
+  assert.equal(A.lidL.d, 'M0 0', 'left eye still open');
+});
+
+test('the face has no clip paths on animated parts (clip groups were too slow to repaint)', () => {
+  const markup = cloudInnerMarkup({});
+  assert.doesNotMatch(markup, /clip-path="url\(#cl-lens/);
+  assert.doesNotMatch(markup, /id="cl-lens/);
+});
+
+test('brows stay within the face and move with raise and worry', () => {
   for (const raise of [-1, 0, 1]) for (const worry of [0, 1]) {
     const d = browD('L', raise, worry);
     const ys = [...d.matchAll(/[\d.-]+ ([\d.-]+)/g)].map((m) => Number(m[1]));
-    for (const y of ys) assert.ok(y > 110 && y < 150, `brow y ${y}`);
+    for (const y of ys) assert.ok(y > 100 && y < 140, `brow y ${y}`);
   }
-  assert.equal(smileD(1), 'M166 204 Q180 216 194 204');
-  assert.equal(smileD(-1), 'M166 204 Q180 192 194 204');
+  assert.ok(browD('L', 1, 0) !== browD('L', 0, 0), 'raise changes the brow');
+  assert.ok(browD('L', 0, 1) !== browD('L', 0, 0), 'worry changes the brow');
+});
+
+test('smile curves up for positive values and down for negative, around the mouth centre', () => {
+  assert.equal(smileD(1), `M166 ${MOUTH.y - 6} Q180 ${MOUTH.y + 19} 194 ${MOUTH.y - 6}`);
+  assert.equal(smileD(-1), `M166 ${MOUTH.y - 6} Q180 ${MOUTH.y - 31} 194 ${MOUTH.y - 6}`);
+});
+
+test('thinking moves the brows over time; idle keeps them still', () => {
+  const think = createCloudController({ seed: 7 });
+  think.setState('thinking');
+  const idle = createCloudController({ seed: 7 });
+  const raises = [];
+  const idleRaises = [];
+  for (let i = 1; i <= 240; i++) {
+    raises.push(think.frame(1 / 60, i / 60).raise);
+    idleRaises.push(idle.frame(1 / 60, i / 60).raise);
+  }
+  const spread = (xs) => Math.max(...xs.slice(120)) - Math.min(...xs.slice(120));
+  assert.ok(spread(raises) > 0.3, 'thinking brows move');
+  assert.ok(spread(idleRaises) < 0.05, 'idle brows hold');
+});
+
+test('the approach edge fires once per approach, not on every frame near', () => {
+  const att = createAttention();
+  const edges = [];
+  edges.push(att.update(1 / 60, null).justNear);
+  edges.push(att.update(1 / 60, NEAR_ENTER - 10).justNear); // enters
+  for (let i = 0; i < 30; i++) edges.push(att.update(1 / 60, NEAR_ENTER - 10).justNear); // stays near
+  assert.equal(edges.filter(Boolean).length, 1, 'one edge');
+});
+
+test('the cloud winks on approach, but not with reduced motion or in error or acting', () => {
+  const winkDuring = (state, reduced) => {
+    const c = createCloudController({ seed: 7, reducedMotion: reduced });
+    c.setState(state);
+    run(c, 1); // settle without a cursor
+    c.setPointer({ x: CENTER.x + 40, y: CENTER.y });
+    let max = 0;
+    for (let i = 1; i <= 60; i++) max = Math.max(max, c.frame(1 / 60, 1 + i / 60).wink);
+    return max;
+  };
+  assert.ok(winkDuring('idle', false) > 0.5, 'idle winks on approach');
+  assert.equal(winkDuring('idle', true), 0, 'reduced motion: no wink');
+  assert.equal(winkDuring('error', false), 0, 'error: no wink');
+  assert.equal(winkDuring('acting', false), 0, 'acting: no wink');
 });
 
 // ---------- controller behaviour

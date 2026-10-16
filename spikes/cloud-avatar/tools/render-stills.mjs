@@ -11,20 +11,24 @@ const out = join(here, 'stills');
 mkdirSync(out, { recursive: true });
 
 // Settle each pose for 3 s at 60 fps with motion frozen, so the still shows the target pose.
-function settle(name, pointer = null) {
+function settle(name, pointer = null, extra = {}) {
   const ctrl = createCloudController({ seed: 7, reducedMotion: true });
   ctrl.setState(name);
   ctrl.setPointer(pointer);
   let pose;
   for (let i = 1; i <= 180; i++) pose = ctrl.frame(1 / 60, i / 60);
-  return pose;
+  return { ...pose, ...extra };
 }
 
-const jobs = STATE_NAMES.map((n) => [n, n, null]);
+const jobs = STATE_NAMES.map((n) => [n, n, null, {}]);
 jobs.push(['idle-cursor-near', 'idle', { x: 262, y: 150 }]);
 jobs.push(['idle-cursor-far', 'idle', { x: 340, y: 300 }]);
-for (const [file, state, pointer] of jobs) {
-  const pose = settle(state, pointer);
-  writeFileSync(join(out, `${file}.svg`), cloudStandaloneSvg(poseAttrs(pose), 2));
+// The wink is a short moment on approach. The still freezes it at its peak, with the right eye closed.
+jobs.push(['idle-wink', 'idle', { x: 262, y: 150 }, { wink: 1 }]);
+for (const [file, state, pointer, extra] of jobs) {
+  const pose = settle(state, pointer, extra);
+  // Stills get a navy backdrop so the white cloud reads in review. The live page uses the CSS background.
+  const svg = cloudStandaloneSvg(poseAttrs(pose), 2).replace(/>(<defs>)/, '><rect width="100%" height="100%" fill="#0B1B45"/>$1');
+  writeFileSync(join(out, `${file}.svg`), svg);
   console.log(`wrote stills/${file}.svg (${state}, pointer ${pointer ? JSON.stringify(pointer) : 'none'})`);
 }

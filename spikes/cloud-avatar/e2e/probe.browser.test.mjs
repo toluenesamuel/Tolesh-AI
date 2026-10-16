@@ -108,8 +108,8 @@ describe('probe: the cloud renders and the controls work', () => {
   test('loads with no console errors, no external requests, and a drawn cloud', async () => {
     const page = await open();
     const shape = await page.evaluate(() => document.querySelectorAll('#orb [data-k]').length);
-    // 14 keyed parts: body, ground, glows, both lids and lid edges, brows, gaze groups, smile, mouth.
-    assert.equal(shape, 14, `cloud markup drawn, ${shape} keyed parts`);
+    // 12 keyed parts: body, ground, glows (cyan and coral), both lids, brows, gaze groups, smile, mouth.
+    assert.equal(shape, 12, `cloud markup drawn, ${shape} keyed parts`);
     assert.deepEqual(page.errors, [], page.errors.join(' | '));
   });
 

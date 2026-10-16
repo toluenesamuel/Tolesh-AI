@@ -142,12 +142,14 @@ export function createLevel() {
 
 // Cursor attention with hysteresis. Near when inside NEAR_ENTER, stays near until NEAR_LEAVE,
 // then relaxes after LEAVE_DWELL seconds away.
+// justNear is true only on the frame where the cursor first counts as near (an edge, not a level).
 export function createAttention() {
   let near = false;
   let away = 0;
   let amount = 0;
   return {
     update(dt, dist) {
+      const wasNear = near;
       const inside = dist !== null && (near ? dist <= NEAR_LEAVE : dist < NEAR_ENTER);
       if (inside) {
         near = true;
@@ -157,10 +159,14 @@ export function createAttention() {
         if (away >= LEAVE_DWELL) near = false;
       }
       amount = easeToward(amount, near ? 1 : 0, dt, 0.25);
-      return { near, amount };
+      return { near, amount, justNear: near && !wasNear };
     },
   };
 }
+
+// Playful wink on approach. Short, and only in states where a wink fits the tone.
+export const WINK_DURATION = 0.5;
+export const WINK_STATES_EXCLUDED = ['acting', 'error'];
 
 // Gaze from a cursor point in viewBox units. tanh gives natural limits: the eyes never
 // leave their socket, and they ease toward the edge instead of stopping hard.
@@ -189,6 +195,7 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
   const blinker = createBlinker(seed);
   const level = createLevel();
   const attention = createAttention();
+  let winkStart = -1; // time the current wink started, or -1 when not winking
   const ch = {};
   for (const k of CHANNELS) ch[k] = STATES.idle[k];
   ch.gx = 0;
@@ -225,6 +232,15 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
 
       const blink = m ? blinker.update(t) : 1;
       const att = attention.update(dt, pointer ? Math.hypot(pointer.x - CENTER.x, pointer.y - CENTER.y) : null);
+
+      // Wink when the cursor first comes near. Never with reduced motion, and not while acting or in error.
+      if (m && att.justNear && winkStart < 0 && !WINK_STATES_EXCLUDED.includes(state)) winkStart = t;
+      let wink = 0;
+      if (winkStart >= 0) {
+        const wp = (t - winkStart) / WINK_DURATION;
+        if (wp >= 1 || !m) winkStart = -1;
+        else wink = Math.sin(Math.PI * wp);
+      }
 
       // Speaking follows the output level (or the simulated voice); listening follows the mic level.
       const lvlTarget =
@@ -263,6 +279,9 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
       };
       for (const k of CHANNELS) ch[k] = easeToward(ch[k], targets[k], dt, 0.3);
 
+      // Thinking: the brows move slowly, as if working something out. Listening: brows follow the mic.
+      const browThink = state === 'thinking' ? m * 0.5 * Math.sin((TAU * t) / 2.8) : 0;
+      const browListen = state === 'listening' ? m * 0.5 * lvl : 0;
       const floatY = m * ch.float * 4.5 * Math.sin((TAU * t) / 4.2);
       const breath = m * ch.breath * 0.012 * Math.sin((TAU * t) / 3.6);
       const bounce = m * 0.01 * lvl;
@@ -280,7 +299,8 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
         scaleY: ch.squash * (1 + breath + bounce),
         open: clamp(ch.open * blink, 0.06, 1.12),
         lidTilt: ch.lidTilt,
-        raise: ch.raise + emphasisLift,
+        raise: ch.raise + emphasisLift + browThink + browListen + 0.25 * wink,
+        wink,
         mouthWide,
         worry: ch.worry,
         smile: ch.smile,

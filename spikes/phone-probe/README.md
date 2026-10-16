@@ -6,11 +6,11 @@ Status: **built, logic-tested in Node, and browser-tested in headless Chromium (
 
 The white cloud avatar replaced the orb on this page. This was a controlled, documented change.
 
-- **Added:** `cloud-view.js` (adapter from the probe's modes and real audio levels to the cloud controller), `cloud/` (exact copies of `spikes/cloud-avatar/cloud-core.js` and `cloud-scene.js`), `tests/cloud-view.test.mjs` (6 tests, including a drift check on the copies).
+- **Added:** `cloud-view.js` (adapter from the probe's modes and real audio levels to the cloud controller), `cloud/` (exact copies of `spikes/cloud-avatar/cloud-core.js` and `cloud-scene.js`, v2 with glasses and the wink), `tests/cloud-view.test.mjs` (7 tests, including a byte-for-byte drift check on the copies in `cloud/`).
 - **Changed:** `index.html` (canvas replaced by an SVG with id `orb`, and page copy), `probe.js` (the cloud replaces the orb renderer; levels are real only; pause freezes the cloud; cursor and touch move its attention), `probe.css` (SVG sizing; the mode buttons fit their cards).
 - **No longer loaded:** `orb.js` and `eye.js`. They remain in the repo, and `tests/demo.test.mjs` and `tests/eye.test.mjs` still test them.
 - **Audio rules kept:** listening follows the microphone analyser. Speaking follows the output analyser of the test voice. With no real audio, the mouth stays closed. The cloud's built-in simulated voice is never used on this page.
-- **Rollback:** revert the replacement commit with `git revert`, or restore `index.html`, `probe.js` and `probe.css` from commit `7d24f6b`. The orb is still served from an export of that commit on port 8080 for comparison.
+- **Rollback:** revert the replacement commit `f830882` with `git revert`, or restore `index.html`, `probe.js` and `probe.css` from its parent `7d24f6b`, which is the last orb version of those files. The orb modules `orb.js` and `eye.js` are still in the tree, last changed in `445d621`. The orb is still served from an export of `7d24f6b` on port 8080 for comparison.
 - **Not wired:** the main app's conversation lifecycle, because the app has no code yet.
 
 ## Files (current)
@@ -25,8 +25,8 @@ The white cloud avatar replaced the orb on this page. This was a controlled, doc
 | `orb.js`, `eye.js` | Previous orb renderer and eye. Not loaded; kept for rollback. |
 | `state.js` | Pure logic: modes and labels, speech envelope for the test voice, microphone level conversion. No DOM. |
 | `meter-worklet.js` | AudioWorklet that computes a level (RMS) and posts numbers only. It outputs silence. |
-| `tests/` | Node built-in tests: `demo.test.mjs` (17), `eye.test.mjs` (14, orb modules), `cloud-view.test.mjs` (6). |
-| Browser tests | `spikes/cloud-avatar/e2e/probe.browser.test.mjs` (9) in headless Chromium with a fake microphone and test tone. |
+| `tests/` | Node built-in tests: `demo.test.mjs` (17), `eye.test.mjs` (14, orb modules), `cloud-view.test.mjs` (7). |
+| Browser tests | `spikes/cloud-avatar/e2e/probe.browser.test.mjs` (9) in headless Chromium with a fake microphone and test tone. Run the Node tests one file at a time: `node --test tests/cloud-view.test.mjs`. |
 
 
 ## Run it (no installs)

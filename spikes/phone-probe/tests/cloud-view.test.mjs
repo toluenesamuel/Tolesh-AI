@@ -60,3 +60,15 @@ test('listening uses the microphone analyser level, and pause freezes the cloud'
   assert.ok(/setInputLevel\(micStream \? micLevel : 0\)/.test(probe), 'mic level drives listening');
   assert.ok(/if \(paused\) return;\s*cloudView\.update\(now\);/.test(probe), 'paused skips the update');
 });
+
+test('the probe copies of the cloud core and scene match the prototype byte for byte', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const f of ['cloud-core.js', 'cloud-scene.js']) {
+    const copy = readFileSync(join(here, '..', 'cloud', f), 'utf8');
+    const source = readFileSync(join(here, '..', '..', 'cloud-avatar', f), 'utf8');
+    assert.equal(copy, source, `${f} is out of sync: copy it from spikes/cloud-avatar/`);
+  }
+});

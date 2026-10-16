@@ -77,7 +77,8 @@ async function open({ width = 390, height = 844, touch = false, reduced = false,
   });
   await page.goto(base, { waitUntil: 'load' });
   await page.waitForFunction(() => document.querySelectorAll('#cloud [data-k]').length > 10 && document.querySelector('[data-k=body]').getAttribute('transform'));
-  await new Promise((r) => setTimeout(r, 300));
+  // Let first paint and the frame loop settle, so timing-based samples are not taken during start-up.
+  await new Promise((r) => setTimeout(r, 1200));
   return page;
 }
 
@@ -174,8 +175,9 @@ describe('cursor', () => {
     await page.mouse.move(left.x, left.y);
     await new Promise((r) => setTimeout(r, 900));
     const gxLeft = (await sample(page, 300)).at(-1).gx;
-    assert.ok(gxRight > 2 && gxRight <= 4.5, `right gaze ${gxRight}`);
-    assert.ok(gxLeft < -2 && gxLeft >= -4.5, `left gaze ${gxLeft}`);
+    // Full travel is GAZE_MAX.x (5 units). The far cursor point reaches about 90% of it.
+    assert.ok(gxRight > 2 && gxRight <= 5, `right gaze ${gxRight}`);
+    assert.ok(gxLeft < -2 && gxLeft >= -5, `left gaze ${gxLeft}`);
   });
 
   test('the eyes ease toward the cursor rather than snapping', async () => {
