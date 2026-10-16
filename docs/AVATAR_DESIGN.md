@@ -1,6 +1,6 @@
 # Tolesh avatar design (proposal for review)
 
-Status: **proposal, not approved.** Nothing here replaces the existing orb in `spikes/phone-probe/`. The approval gate is at the end of this document.
+Status: **superseded (2026-10-16).** The user approved the white cloud avatar (Request K), and it replaces the orb entirely. The current design is in `spikes/cloud-avatar/` and `docs/FRONTEND_IMPLEMENTATION_PLAN.md` §3.7. The glass-orb anchors and the A/B/C concepts below are kept for history only.
 
 Skill used: `ai-avatar` (Pancat009/ai-avatar-skill, MIT, commit `ca4ee96`), installed at `.agents/skills/ai-avatar/`. See `SOURCE.md` there for the installation record. The skill is a character-design workflow built for human OCs. Tolesh is an abstract AI companion, so only its method was applied: lock the visual anchors first, then write the identity, prompts, and consistency rules. Steps for human bodies (face, three-view, portrait sets) were not applied.
 

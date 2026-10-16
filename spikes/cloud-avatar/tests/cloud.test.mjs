@@ -412,3 +412,77 @@ test('the controller and scene have no DOM or global side effects at import', ()
   assert.equal(typeof createCloudController, 'function');
   assert.equal(typeof cloudStandaloneSvg, 'function');
 });
+
+test('error is warm and reassuring: eyes open, gentle smile, no frown or worried brows', () => {
+  const e = STATES.error;
+  assert.ok(e.open >= 0.95, 'eyes stay open');
+  assert.ok(e.smile >= 0.4, 'a gentle smile');
+  assert.ok(e.worry <= 0.12, 'brows are not worried');
+  assert.ok(e.lidTilt <= 0.02, 'lids are not drooped');
+  assert.ok(e.glowCoral > 0 && e.glowCoral <= 0.2, 'only a faint coral accent');
+  assert.ok(e.gaze[1] >= 0, 'gaze is toward the person, not away');
+  assert.ok(e.hint.length > 20 && !/failed|error|fault/i.test(e.hint), 'the hint is calm and does not blame the user');
+});
+
+test('speaking has pauses between phrases and irregular syllables, not one fixed rhythm', () => {
+  const ctrl = createCloudController({ seed: 7 });
+  ctrl.setState('speaking');
+  const levels = [];
+  for (let i = 1; i <= 60 * 12; i++) levels.push(ctrl.frame(1 / 60, i / 60).mouthOpen);
+  // A pause: the mouth nearly closes for at least 0.15 s somewhere in each phrase.
+  const quiet = levels.filter((v) => v < 0.12).length;
+  assert.ok(quiet > 60 * 12 * 0.05, `should pause between phrases, quiet frames ${quiet}`);
+  // Syllable gaps differ: intervals between peaks are not all equal.
+  const peaks = [];
+  for (let i = 2; i < levels.length - 1; i++) if (levels[i] > 0.35 && levels[i] >= levels[i - 1] && levels[i] > levels[i + 1]) peaks.push(i);
+  // Only gaps inside a phrase count: anything longer than 0.7 s is a pause between phrases.
+  const gaps = peaks.slice(1).map((p, i) => p - peaks[i]).filter((g) => g < 42);
+  const spread = Math.max(...gaps) - Math.min(...gaps);
+  assert.ok(gaps.length > 20 && spread >= 3, `syllable gaps vary, spread ${spread} frames`);
+});
+
+test('speaking moves the head a little and changes mouth width; idle does neither', () => {
+  const talk = createCloudController({ seed: 7 });
+  talk.setState('speaking');
+  const t = [];
+  for (let i = 1; i <= 60 * 6; i++) t.push(talk.frame(1 / 60, i / 60));
+  const tiltRange = Math.max(...t.slice(120).map((p) => p.tilt)) - Math.min(...t.slice(120).map((p) => p.tilt));
+  const widths = t.map((p) => p.mouthWide);
+  assert.ok(tiltRange > 1.5, `head sways while speaking, range ${tiltRange}`);
+  assert.ok(Math.max(...widths) - Math.min(...widths) > 0.8, 'mouth width varies');
+
+  const idle = createCloudController({ seed: 7 });
+  const q = [];
+  for (let i = 1; i <= 60 * 6; i++) q.push(idle.frame(1 / 60, i / 60));
+  assert.ok(Math.max(...q.map((p) => Math.abs(p.mouthWide))) === 0, 'no mouth width when idle');
+  const idleTilt = Math.max(...q.slice(120).map((p) => p.tilt)) - Math.min(...q.slice(120).map((p) => p.tilt));
+  assert.ok(idleTilt < 0.01, `no sway when idle, range ${idleTilt}`);
+});
+
+test('reduced motion removes the speech sway and width changes', () => {
+  const ctrl = createCloudController({ seed: 7, reducedMotion: true });
+  ctrl.setState('speaking');
+  const p = run(ctrl, 4, 0);
+  assert.ok(Math.abs(p.mouthWide) < 1e-9, 'no width change');
+  assert.ok(Math.abs(p.raise - STATES.speaking.raise) < 1e-3, 'no emphasis lift');
+});
+
+test('listening follows the microphone level, and speaking ignores it', () => {
+  const quiet = createCloudController({ seed: 7 });
+  quiet.setState('listening');
+  quiet.setInputLevel(0);
+  const a = run(quiet, 1);
+  const loud = createCloudController({ seed: 7 });
+  loud.setState('listening');
+  loud.setInputLevel(0.9);
+  const b = run(loud, 1);
+  assert.ok(b.glowCyan > a.glowCyan + 0.1, `loud mic brightens the glow: ${a.glowCyan} vs ${b.glowCyan}`);
+  assert.ok(b.mouthOpen < 0.01, 'listening never opens the mouth');
+
+  const speak = createCloudController({ seed: 7 });
+  speak.setState('speaking');
+  speak.setInputLevel(0.9);
+  speak.setLevel(0);
+  const s = run(speak, 1);
+  assert.ok(s.mouthOpen < 0.02, 'the microphone does not drive the speaking mouth');
+});

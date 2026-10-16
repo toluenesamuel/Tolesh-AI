@@ -17,7 +17,7 @@ Related: docs/NIGERIAN_LANGUAGE_AND_SPEECH_RESEARCH.md, docs/PERSONALITY_AND_EMO
 
 ```
                           ┌────────────────────────────────────────────┐
-  Client (per platform)   │  UI shell: orb/avatar, transcript, controls │
+  Client (per platform)   │  UI shell: avatar/avatar, transcript, controls │
   web / desktop / Android │  State machine: idle→listening→thinking→…   │
                           │  Audio I/O, VAD, barge-in, local memory     │
                           └───────────────┬────────────────────────────┘
@@ -40,7 +40,7 @@ Related: docs/NIGERIAN_LANGUAGE_AND_SPEECH_RESEARCH.md, docs/PERSONALITY_AND_EMO
 ## 3. Components
 
 ### 3.1 Client shell
-- Renders the orb/avatar and transcript; owns the **conversation state machine** (`idle`, `listening`, `thinking`, `speaking`, `acting`, `error`, `muted/offline`) and a separate **affect layer** (`neutral`, `warm`, `amused`, `curious`, `concerned`, `playful-annoyed`, `excited`, `calm-serious`).
+- Renders the avatar/avatar and transcript; owns the **conversation state machine** (`idle`, `listening`, `thinking`, `speaking`, `acting`, `error`, `muted/offline`) and a separate **affect layer** (`neutral`, `warm`, `amused`, `curious`, `concerned`, `playful-annoyed`, `excited`, `calm-serious`).
 - State and affect arrive as **typed events** from the orchestrator. The UI never decides emotion itself.
 - Handles mic capture, voice-activity detection, and **barge-in** (stop TTS on user speech).
 - Stores local memory (see 3.7) and settings.
@@ -116,8 +116,11 @@ Fallback chains: per language and mode, an ordered list. If the top provider's s
 - No voiceprints or speaker ID. Raw audio is not retained by default.
 
 ### 3.10 Avatar and expression renderer
-- Consumes `{state, affect, intensity, speechAmplitude}` events and maps them to orb parameters (hue shift, pulse, amplitude, edge noise). Not every emotion is a facial animation. A face is optional and an open decision.
-- Renders via an approach chosen after prototype (CSS/SVG, canvas, or WebGL/shader). Must meet performance and battery limits on Android and on modest Windows/Linux hardware, and degrade gracefully (no mic permission, no WebGL, low power, reduced motion).
+- Consumes `{state, affect, intensity, speechAmplitude}` events and maps them to the approved white cloud avatar's pose: eyes, brows, lids, mouth, head tilt and glow (decision D-19, approved 2026-10-16). The cloud replaces the avatar entirely. There is no human face.
+- Audio drives the avatar only through real levels: the microphone analyser while `listening`, and the playback output analyser while `speaking`. The renderer never generates speech-like motion for the app.
+- Renders as inline SVG from a pure state controller (prototype: `spikes/cloud-avatar/`). Must meet performance and battery limits on Android and modest Windows/Linux hardware (measured in F1), and degrade gracefully (no mic permission, low power, reduced motion).
+- **Status:** the main Tolesh app has no code yet. Connecting the avatar to the real conversation state machine and to the real voice pipeline is not implemented and must wait for those systems.
+
 
 ### 3.11 Tools and agency (later phases)
 - **Screen awareness** and **computer task execution** run as separate, permissioned capabilities behind a policy layer: explicit per-capability consent, an always-visible indicator, a stop control, an action log, confirmation for destructive or irreversible actions, and allow-lists. Platform realities differ (Windows UI automation, Linux X11/Wayland constraints on screen capture and input injection, Android accessibility services and Play policy). All are research items, not v1.
@@ -143,7 +146,7 @@ Option A: **web-first PWA** + thin desktop shells (Tauri or Electron) + Android 
 Option B: **web UI + native companions** per platform for overlay and agent features.
 Option C: fully separate native apps. Best capability; highest cost.
 
-Recommendation for v1: **Option A for conversation, text and voice**, treating overlay and computer control as later platform-specific modules. Stack and framework are deliberately not chosen here. Decision criteria: orb rendering performance on mid-range Android, mic and audio latency, offline behaviour, packaging effort, maintainability by this team. See OPEN_DECISIONS.md.
+Recommendation for v1: **Option A for conversation, text and voice**, treating overlay and computer control as later platform-specific modules. Stack and framework are deliberately not chosen here. Decision criteria: avatar rendering performance on mid-range Android, mic and audio latency, offline behaviour, packaging effort, maintainability by this team. See OPEN_DECISIONS.md.
 
 ## 6. Hosting and data location (open)
 
@@ -185,4 +188,4 @@ Structured logs of **events, not content**, by default: state transitions, laten
 
 ## 11. Decisions this plan intentionally defers
 
-Stack and framework, platform packaging, orchestrator placement, orb rendering technology, LLM and speech providers, sync, and whether the avatar has a face. All are tracked in OPEN_DECISIONS.md with the criteria for deciding.
+Stack and framework, platform packaging, orchestrator placement, avatar rendering technology, LLM and speech providers, sync, and whether the avatar has a face. All are tracked in OPEN_DECISIONS.md with the criteria for deciding.

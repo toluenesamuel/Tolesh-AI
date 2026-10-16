@@ -48,10 +48,12 @@ export const STATES = {
   },
   error: {
     label: 'Something went wrong',
-    hint: 'Friendly and steady. Something failed. You can try again.',
-    open: 0.9, lidTilt: 0.1, raise: 0.3, worry: 0.3, smile: 0.22, tilt: -2, squash: 0.975,
-    float: 0.25, breath: 0.3, glowCyan: 0.08, glowCoral: 0.2,
-    gazeFollow: false, gaze: [0, 0.4], gazeDrift: false, mouth: 'flat',
+    hint: 'That did not work, and that is okay. You can try again whenever you are ready.',
+    // Warm and reassuring: eyes fully open and soft, a gentle smile, a small apologetic lift of
+    // the brows and a relaxed head tilt. No frown, no tight eyes, and only a faint coral accent.
+    open: 0.98, lidTilt: 0, raise: 0.22, worry: 0.1, smile: 0.46, tilt: -4, squash: 1,
+    float: 0.5, breath: 0.6, glowCyan: 0.12, glowCoral: 0.14,
+    gazeFollow: false, gaze: [0.05, 0.06], gazeDrift: false, mouth: 'smile',
   },
 };
 
@@ -106,11 +108,22 @@ export function createBlinker(seed = 7) {
   };
 }
 
-// Speech level for the simulated voice. Deterministic syllables with phrase shape.
+// Speech level for the simulated voice. Not real audio: it only imitates the rhythm of speech.
+// Syllable rate wanders between about 2.4 and 3.6 per second, each syllable has a soft peak
+// rather than a pure sine, and every phrase ends in a short pause. Deterministic in t.
 export function simulatedSpeechLevel(t) {
-  const syllable = 0.5 + 0.5 * Math.sin(TAU * 3.1 * t);
-  const phrase = 0.6 + 0.4 * Math.sin(TAU * 0.45 * t + 1.3);
-  return clamp01(syllable * phrase * 0.9 + 0.05);
+  const rate = 3.0 + 0.6 * Math.sin(TAU * 0.23 * t) + 0.25 * Math.sin(TAU * 0.71 * t + 0.4);
+  const phase = (t * rate) % 1;
+  const syllable = Math.pow(Math.sin(Math.PI * phase), 2); // soft, rounded peaks
+  const cycle = t % 2.9; // phrase length in seconds
+  const pause = cycle < 2.35 ? 1 : clamp01((2.45 - cycle) / 0.1); // silent for the last 0.45 s
+  const emphasis = 0.8 + 0.2 * Math.sin(TAU * 0.37 * t + 1.3); // some syllables are stronger
+  return clamp01(syllable * emphasis * pause * 0.92 + 0.03);
+}
+
+// Vowel-like width, -1 (round, tall) to 1 (wide, flat). Used only while speaking.
+export function mouthWidth(t) {
+  return 0.6 * Math.sin(TAU * 1.9 * t + 0.7) + 0.4 * Math.sin(TAU * 3.3 * t + 2.1);
 }
 
 // Level follower: fast attack, slower release, so the mouth does not flicker.
@@ -165,13 +178,14 @@ export function nudgePointer(p, key) {
   return { x: clamp(cur.x + moves[key][0], -60, VIEW.w + 60), y: clamp(cur.y + moves[key][1], -60, VIEW.h + 60) };
 }
 
-const CHANNELS = ['open', 'lidTilt', 'raise', 'worry', 'smile', 'tilt', 'squash', 'float', 'breath', 'glowCyan', 'glowCoral'];
+const CHANNELS = ['open', 'lidTilt', 'raise', 'worry', 'smile', 'tilt', 'squash', 'float', 'breath', 'glowCyan', 'glowCoral', 'talk'];
 
 export function createCloudController({ seed = 7, reducedMotion = false } = {}) {
   let state = 'idle';
   let reduced = !!reducedMotion;
   let pointer = null;
-  let externalLevel = null;
+  let externalLevel = null; // output level while speaking
+  let externalInput = null; // microphone level while listening
   const blinker = createBlinker(seed);
   const level = createLevel();
   const attention = createAttention();
@@ -179,6 +193,7 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
   for (const k of CHANNELS) ch[k] = STATES.idle[k];
   ch.gx = 0;
   ch.gy = 0;
+  ch.talk = 0; // 0 = not speaking, 1 = speaking. Eased, so head sway and brow lifts fade in and out.
 
   return {
     setState(name) {
@@ -198,6 +213,10 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
     setLevel(v) {
       externalLevel = v == null || !Number.isFinite(v) ? null : clamp01(v);
     },
+    // Microphone level (0..1) for listening. Null or no mic means no reaction.
+    setInputLevel(v) {
+      externalInput = v == null || !Number.isFinite(v) ? null : clamp01(v);
+    },
 
     frame(dt, t) {
       dt = clamp(dt, 0, 0.1); // at most 100 ms per step, so slow frames do not slow the animation much
@@ -207,7 +226,9 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
       const blink = m ? blinker.update(t) : 1;
       const att = attention.update(dt, pointer ? Math.hypot(pointer.x - CENTER.x, pointer.y - CENTER.y) : null);
 
-      const lvlTarget = state === 'speaking' ? (externalLevel ?? simulatedSpeechLevel(t)) : 0;
+      // Speaking follows the output level (or the simulated voice); listening follows the mic level.
+      const lvlTarget =
+        state === 'speaking' ? (externalLevel ?? simulatedSpeechLevel(t)) : state === 'listening' ? (externalInput ?? 0) : 0;
       const lvl = level.step(lvlTarget, dt);
 
       // Gaze target: the cursor when the state follows it, otherwise the state's own gaze.
@@ -238,22 +259,29 @@ export function createCloudController({ seed = 7, reducedMotion = false } = {}) 
         breath: S.breath,
         glowCyan: S.glowCyan + 0.2 * lvl,
         glowCoral: S.glowCoral,
+        talk: state === 'speaking' ? 1 : 0,
       };
       for (const k of CHANNELS) ch[k] = easeToward(ch[k], targets[k], dt, 0.3);
 
       const floatY = m * ch.float * 4.5 * Math.sin((TAU * t) / 4.2);
       const breath = m * ch.breath * 0.012 * Math.sin((TAU * t) / 3.6);
       const bounce = m * 0.01 * lvl;
+      // Speech motion, only while talking and only with motion allowed: a slow head sway,
+      // and brows that lift a little on stronger syllables.
+      const sway = m * ch.talk * 1.4 * Math.sin((TAU * t) / 1.8);
+      const emphasisLift = m * ch.talk * 0.12 * lvl;
+      const mouthWide = m * ch.talk * mouthWidth(t);
 
       return {
         state,
-        tilt: ch.tilt,
+        tilt: ch.tilt + sway,
         floatY,
         scaleX: ch.squash * (1 + breath * 0.6),
         scaleY: ch.squash * (1 + breath + bounce),
         open: clamp(ch.open * blink, 0.06, 1.12),
         lidTilt: ch.lidTilt,
-        raise: ch.raise,
+        raise: ch.raise + emphasisLift,
+        mouthWide,
         worry: ch.worry,
         smile: ch.smile,
         gx: clamp(ch.gx, -1, 1),

@@ -10,12 +10,12 @@ Source: your message approving docs/FRONTEND_IMPLEMENTATION_PLAN.md with six con
 |---|---|---|
 | D-02 Frontend framework | **Approved:** React, TypeScript, Vite | Other stack libraries (TanStack, XState, Zod, React Aria, Tailwind 4, Motion): **confirmation requested** in docs/F1_SPIKE_PLAN.md §12 item 10 |
 | D-03 Platform approach | **Approved:** Option A (web-first, thin shells) | — |
-| D-19 Orb and face | **Approved:** animated AI orb. Abstract, no face in v1 | Renderer (WebGL2 or Canvas 2D fallback) confirmed by F1 spike results |
+| D-19 Avatar and face | **Approved 2026-10-16:** the white cloud avatar (`spikes/cloud-avatar/`) replaces the orb entirely. Its eyes are part of the cloud. No human face, no animal features | Renderer (inline SVG) and device performance confirmed by F1 spike results |
 | D-23 Computer control | **Approved:** none until a security review is approved | Condition 6 of your approval |
 | D-24 Desktop engine | **Approved:** Tauri 2 | **Subject to the Zorin OS compatibility test** (F1 WS-D, T-Z-1 to T-Z-6) |
 | D-25 Android shell | **Approved:** Capacitor | **Subject to device testing** (F1 WS-E, T-A-1 to T-A-4). New evidence (tc-mobile PR #334) means this must be tested, not assumed |
 | D-26 Accessibility | **Approved:** WCAG 2.2 AA target | Baseline wording in ARCHITECTURE_PLAN.md §10, MASTER_IMPLEMENTATION_PLAN.md §6 and AGENTS.md updated to match |
-| Design direction | **Approved:** futuristic, polished, animated AI orb, voice interaction, dashboard, light and dark themes | Palette and tokens are working values, finalised in F0 |
+| Design direction | **Approved:** futuristic, polished, animated AI avatar (the white cloud, D-19), voice interaction, dashboard, light and dark themes | Palette and tokens are working values, finalised in F0 |
 | Security | **Approved:** no computer-control implementation before the security review is approved | Condition 6 |
 
 **Still open for approval:** D-21, D-22, D-27, D-28, D-29, the remaining stack libraries, D-06, D-05, D-17, D-09, D-14, D-07, D-10, D-01, D-20. The full list is in docs/F1_SPIKE_PLAN.md §12.
@@ -48,7 +48,7 @@ Blocking: Phase 1 G0 behaviour beyond "supportive and encourage real-world help"
 ## B. Technical
 
 ### D-02 Stack and framework (blocking Phase 1)
-Not chosen. Criteria: orb rendering performance on mid-range Android, mic/audio latency, offline behaviour, packaging, maintainability, accessibility. Decide through a short prototype, recorded as an ADR.
+Not chosen. Criteria: avatar rendering performance on mid-range Android, mic/audio latency, offline behaviour, packaging, maintainability, accessibility. Decide through a short prototype, recorded as an ADR.
 
 **Recommendation (2026-10-14, see docs/FRONTEND_IMPLEMENTATION_PLAN.md §1):** TypeScript; React 19; Vite 8 as an installable PWA; TanStack Router and Query; XState for the conversation machine; Zod for events; React Aria Components; Tailwind CSS 4 with tokens; Motion for UI transitions; custom WebGL2 orb. Not Next.js. **Awaiting your approval.** The final choice is confirmed by the F1 spike and recorded as an ADR.
 
@@ -78,10 +78,10 @@ Dedicated small classifier, structured LLM call, or rules + LLM. Decide after Ph
 ### D-18 Telemetry
 Event-only logs versus none. Content logging only with explicit consent. Recommendation: event-only, local first.
 
-### D-19 Orb rendering approach and optional face
+### D-19 Avatar rendering approach and face
 CSS/SVG, canvas or WebGL/shader; face versus abstract orb only. Decide by prototype against performance limits.
 
-**Frontend recommendation (2026-10-14):** abstract orb only in v1, drawn as a single WebGL2 fragment shader on one canvas, with Canvas 2D and static SVG fallbacks. No three.js in v1. Face deferred; if approved later, evaluate Rive. **Awaiting your approval**; confirmed by the F1 spike on the reference device.
+**Decision (2026-10-16, Request K):** the white cloud avatar is approved as Tolesh's visual identity and replaces the orb entirely. It is drawn as inline SVG from a pure state controller, so the cloud needs no WebGL. This supersedes the 2026-10-14 frontend recommendation (WebGL2 orb shader, no face). The eyes are part of the approved cloud, so the earlier 'no face in v1' meant no human face. There is still no human face, no animal features and no orb. The orb stays in git history and in `spikes/phone-probe/orb.js` (no longer loaded) for rollback. **Persona:** the male-presenting personality is kept through voice, language and manner, and the cloud is visually gender-neutral (decided 2026-10-16). **Still open:** frame rate and battery on the reference Android device (F1), and mapping affect to cloud expression (Phase 4).
 
 ## C. Language and personality
 
@@ -140,7 +140,7 @@ Recommendation: decide after Phase 0 from evidence.
 
 ### D-27 Motion library (new 2026-10-14)
 - **Options:** (a) CSS and the Web Animations API only; (b) `motion` (MIT) for UI transitions with CSS for micro-interactions; (c) GSAP.
-- **Recommendation: (b).** GSAP is not needed for v1; its skills stay conditional. The orb uses its own shader, not a library.
+- **Recommendation: (b).** GSAP is not needed for v1; its skills stay conditional. The avatar uses its own SVG controller, not a library.
 - **Who decides:** you.
 
 ### D-28 Component gallery (new 2026-10-14)

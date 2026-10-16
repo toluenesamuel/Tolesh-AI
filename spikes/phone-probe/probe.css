@@ -39,10 +39,10 @@ html, body {
 .brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: .8rem; color: var(--text2); }
 .tag { font-size: .75rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
 
-/* The orb is the centrepiece: about 84% of phone width, centred. */
+/* The cloud avatar is the centrepiece: about 84% of phone width, centred. (Id kept as #orb.) */
 .stage { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 4px; }
 .orb-wrap { width: min(84vw, 380px); aspect-ratio: 1 / 1; display: grid; place-items: center; }
-#orb { width: 100%; height: 100%; display: block; }
+#orb { width: 100%; height: 100%; display: block; overflow: visible; }
 
 .status { font-size: 1.6rem; font-weight: 650; margin: 2px 0 0; letter-spacing: .01em; text-align: center; }
 .detail { margin: 0; color: var(--text2); text-align: center; font-size: .95rem; line-height: 1.45; min-height: 2.9em; max-width: 34ch; }
@@ -69,7 +69,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 button.danger { border-color: #8A4A4A; }
 button:focus-visible, summary:focus-visible, pre:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.modes button { min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 15px; overflow-wrap: anywhere; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .row:first-of-type { margin-top: 0; }
 .row3 { grid-template-columns: 1fr 1fr 1fr; }

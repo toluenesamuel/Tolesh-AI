@@ -4,7 +4,7 @@ Tolesh is a personal AI companion and authorised digital assistant for **web, Wi
 It has a male-presenting persona, and its interface must feel **futuristic, premium, intelligent, and alive**.
 
 Planned capabilities (design for them now, build them later):
-floating assistant, animated avatar/orb, natural voice conversation with interruption handling,
+floating assistant, animated avatar (the approved white cloud), natural voice conversation with interruption handling,
 expressive listening / thinking / speaking states, screen awareness, authorised computer task execution,
 user-controlled memory, and replaceable model and speech providers.
 
@@ -63,7 +63,7 @@ and limitations. No skill workflow authorises building before the user requests 
 | Motion performance | `animation-performance` (emilkowalski/skill), `fixing-motion-performance` (ibelick/ui-skills) | per `skills-lock.json` |
 | GSAP (only if chosen) | `gsap-core`, `gsap-timeline`, `gsap-react`, `gsap-performance`, `gsap-utils` | greensock/gsap-skills |
 | Accessibility / baseline UI | `fixing-accessibility`, `baseline-ui` | ibelick/ui-skills |
-| Avatar / character identity (the Tolesh orb's visual identity, and its prompts) | `ai-avatar` | Pancat009/ai-avatar-skill (MIT, commit ca4ee96); see `.agents/skills/ai-avatar/SOURCE.md`. Design proposal: `docs/AVATAR_DESIGN.md` |
+| Avatar / character identity (the approved white cloud avatar, D-19, and its prompts) | `ai-avatar` | Pancat009/ai-avatar-skill (MIT, commit ca4ee96); see `.agents/skills/ai-avatar/SOURCE.md`. Design proposal: `docs/AVATAR_DESIGN.md` |
 
 The inherited `skills-lock.json` records sources and hashes; it is not proof of native activation or of
 which installer previously ran. Missing catalogue pointer entries were removed during the audit.
@@ -107,14 +107,14 @@ direction below. Only persist a design system (`--persist`) once the user approv
 ## Tolesh design direction (the brief wins over any skill default)
 
 - **Product type:** a living companion/instrument, not a marketing site or dashboard.
-  The orb/avatar is the hero element and the one memorable thing; keep everything else quiet.
+  The cloud avatar is the hero element and the one memorable thing; keep everything else quiet.
 - **Mood:** futuristic, premium, calm intelligence. Dark-first with a considered light theme.
 - **Avoid:** generic AI purple/pink gradient wash, identical rounded SaaS cards, emoji as icons,
   scattered fade-up entrances, hover-scale on everything (see `frontend-design`, `design-motion-principles`).
 - **State language** (must be visually and motion-distinct, and also readable without colour):
   `idle`, `listening`, `thinking`, `speaking`, `acting` (running a computer task), `error`, `muted/offline`.
   Model these as an explicit state machine, not ad-hoc classes.
-- **Motion:** purposeful, interruptible, GPU-friendly (transform/opacity, shaders/canvas for the orb).
+- **Motion:** purposeful, interruptible, GPU-friendly (transform/opacity; SVG for the cloud avatar).
   Every state transition must work when interrupted mid-animation.
   Honour `prefers-reduced-motion` with a calm non-animated equivalent for every state.
 - **Audio-reactive visuals** must degrade gracefully (no mic permission, no WebGL, low-power device).
@@ -160,7 +160,7 @@ direction below. Only persist a design system (`--persist`) once the user approv
 Full list with options and blocking effect: [OPEN_DECISIONS.md](OPEN_DECISIONS.md). In particular:
 
 1. App stack and packaging (D-02, D-03, D-24, D-25). Recommendations are in docs/FRONTEND_IMPLEMENTATION_PLAN.md §11.
-2. Orb rendering approach (D-19) - drives which motion skills apply.
+2. Avatar rendering (D-19, white cloud approved; device performance confirmed in F1) - drives which motion skills apply.
 3. Whether to adopt GSAP, Framer Motion, or CSS-only motion (install matching skills only after deciding).
 4. Voice and LLM providers, where API keys live, and the configurable male-presenting voice scope (D-05, D-22).
 5. Responsive baseline acceptance (D-21) and the branch collaboration workflow (D-11).

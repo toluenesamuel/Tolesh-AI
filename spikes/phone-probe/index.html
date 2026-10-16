@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'self' blob:; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#07090E">
-<title>Tolesh orb demo (test build)</title>
+<title>Tolesh cloud demo (test build)</title>
 <link rel="stylesheet" href="probe.css">
 <script type="module" src="probe.js"></script>
 </head>
@@ -16,15 +16,15 @@
 
   <header class="top">
     <span class="brand">Tolesh</span>
-    <span class="tag">Orb demo · test build</span>
+    <span class="tag">Cloud demo · test build</span>
   </header>
 
   <section class="stage" id="stage" data-mode="idle" aria-labelledby="status">
     <div class="orb-wrap">
-      <canvas id="orb" role="img" aria-label="Tolesh companion orb. Its current state is written below."></canvas>
+      <svg id="orb" role="img" aria-label="Tolesh cloud avatar. Its current state is written below."></svg>
     </div>
     <h1 id="status" class="status" aria-live="polite">Idle</h1>
-    <p id="statusDetail" class="detail">Resting. Slow breathing and a slow inner glow.</p>
+    <p id="statusDetail" class="detail">Floating and ready. Move your cursor near me and I will notice.</p>
   </section>
 
   <section class="card" aria-labelledby="modes-h">
@@ -37,7 +37,7 @@
       <button type="button" data-mode="acting" aria-pressed="false">Acting</button>
       <button type="button" data-mode="error" aria-pressed="false">Error</button>
     </div>
-    <p class="note">Speaking without a test voice pulses on its own. Use “Simulate reply” to make the orb react to real audio from this phone.</p>
+    <p class="note">With no test voice, the mouth stays closed, because no real sound is playing. “Simulate reply” makes the mouth follow real audio from this phone.</p>
   </section>
 
   <section class="card" aria-labelledby="mic-h">
@@ -57,7 +57,7 @@
 
   <section class="card" aria-labelledby="voice-h">
     <h2 id="voice-h">Simulated reply</h2>
-    <p class="note">Plays a quiet 8-second test voice through the speaker. The orb reacts to its real output level. If the microphone is on, speaking over the test voice interrupts it and switches the orb to Listening.</p>
+    <p class="note">Plays a quiet 8-second test voice through the speaker. The mouth follows the real output level of the test voice. If the microphone is on, speaking over the test voice interrupts it and switches the cloud to Listening.</p>
     <div class="row">
       <button type="button" id="simBtn">Simulate reply</button>
       <button type="button" id="simStop" disabled>Stop reply</button>
@@ -72,7 +72,7 @@
       <button type="button" id="stopAllBtn">Stop all</button>
       <button type="button" id="resetBtn" class="danger">Reset demo</button>
     </div>
-    <p class="note">Stop all turns off the microphone and the test voice and returns to Idle. Reset demo does the same and also clears the results. Pause freezes and dims the orb. The orb also pauses when the page is hidden.</p>
+    <p class="note">Stop all turns off the microphone and the test voice and returns to Idle. Reset demo does the same and also clears the results. Pause freezes the cloud. The cloud also freezes when the page is hidden.</p>
   </section>
 
   <details class="card">

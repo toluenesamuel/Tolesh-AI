@@ -42,8 +42,18 @@ Expected: 31 pass, 0 fail. These tests cover logic, markup, and safety. **They d
 
 Written from scratch for this project. The cloud concept and the idea of driving SVG shapes from a parameter set were informed by `smontlouis/bible-strong-avatar-lab` (AGPL-3.0-only). **No code, markup, or asset was copied from it.** Do not copy code from that repository without a licence decision, because the AGPL applies to copied code and to network-served modifications.
 
+## Status (2026-10-16)
+
+- **Approved** as Tolesh's visual identity and **replaces the orb entirely** (Request K). Decision D-19 in `OPEN_DECISIONS.md`.
+- **Integrated into the phone probe** (`spikes/phone-probe/`) as exact copies in `spikes/phone-probe/cloud/`. A test fails if the copies drift from these files. See that folder's README, "Cloud replacement".
+- **Phase 2 changes:** a friendlier error face (open eyes, gentle smile, relaxed tilt, no frown); natural speech motion (irregular syllables, pauses, vowel-like mouth width, slow head sway, brow lifts on emphasis); listening follows a separate microphone input (`setInputLevel`); smoother transitions, checked by a unit test that limits per-frame change.
+- **Tests:** unit `tests/cloud.test.mjs` 36/36. Browser `e2e/browser.test.mjs` 22/22 (headless Chromium, 390×844 and other sizes). Probe browser `e2e/probe.browser.test.mjs` 9/9 (fake microphone and test tone).
+- **Blur filters removed:** SVG blur re-ran every frame and cost about a third of the frame rate in headless Chromium. Radial gradients give the same soft look.
+- **Caveats:** all browser tests run in headless Linux Chromium, not on a phone. Frame rates are indicative only. The bundled Chromium comes from the npm package `@sparticuz/chromium`.
+
 ## Not done yet
 
-- No real browser run (page load, pointer events, frame timing, GPU or mobile performance).
-- No real audio level. The speaking mouth uses a simulated level.
-- No integration into the app, and no replacement of the current orb (both wait for approval).
+- Real phone testing (mobile performance, real microphone, touch behaviour on hardware). Headless tests cannot show this.
+- Connection to the main app's conversation state and voice pipeline. The main app has no code yet.
+- Mapping `affect` (warm, concerned and so on) to cloud expression, and a `muted/offline` pose.
+- Keyboard arrows are wired in the prototype only, not in the probe.

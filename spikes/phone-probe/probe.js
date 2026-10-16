@@ -1,10 +1,10 @@
-// Orb demo (throwaway test build under spikes/phone-probe/ only).
+// Cloud avatar demo (throwaway test build under spikes/phone-probe/ only).
+// The cloud replaced the orb on this page; see README "Cloud replacement". orb.js is kept but not loaded.
 // Privacy: the microphone is requested only after a tap on "Start microphone".
 // Microphone audio is processed on this device. Nothing is uploaded, recorded or stored.
 // The page's CSP sets connect-src 'none'.
-import { createOrb, createOrb2D } from './orb.js';
-import { MODES, LABELS, MOTION_TEXT, targetsFor, speechEnvelope, rmsToLevel, clamp } from './state.js';
-import { createEye } from './eye.js';
+import { createCloudView, bindPointer } from './cloud-view.js';
+import { MODES, LABELS, rmsToLevel, clamp, speechEnvelope } from './state.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -18,7 +18,7 @@ const pct = (a, p) => {
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
 
 const R = {
-  note: 'Throwaway orb demo. Software timings only. Nothing is uploaded or stored. Microphone audio is processed on this device.',
+  note: 'Throwaway cloud demo. Software timings only. Nothing is uploaded or stored. Microphone audio is processed on this device.',
   startedAt: new Date().toISOString(),
   caps: {},
   events: [],
@@ -55,26 +55,19 @@ function checkCaps() {
   };
 }
 
-// ---------- orb
-// If the WebGL shader fails, its canvas keeps the failed WebGL context and cannot give a 2D context.
-// So the canvas is swapped for a fresh one before the 2D fallback. The error is shown on the page.
-let canvas = $('orb');
-let orb = null;
-let orbError = null;
+// ---------- cloud avatar (replaces the orb)
+// The element keeps its id ("orb") so existing styles and tests keep working.
+let cloudView = null;
+let avatarError = null;
 try {
-  orb = createOrb(canvas);
+  cloudView = createCloudView($('orb'), { reducedMotion: reduced });
 } catch (e) {
-  orbError = String(e).slice(0, 300);
-  log('renderer-error', { message: orbError });
-  const fresh = canvas.cloneNode(false);
-  canvas.replaceWith(fresh);
-  canvas = fresh;
-  orb = null;
+  avatarError = String(e).slice(0, 300);
+  log('renderer-error', { message: avatarError });
 }
-if (!orb) orb = createOrb2D(canvas);
-const rendererKind = orb ? orb.kind : 'none';
-const orbMessage = orb ? null
-  : `The orb could not start in this browser.${orbError ? ' Error: ' + orbError.slice(0, 160) : ''}`;
+const rendererKind = cloudView ? cloudView.kind : 'none';
+const avatarMessage = cloudView ? null
+  : `The cloud could not start in this browser.${avatarError ? ' Error: ' + avatarError.slice(0, 160) : ''}`;
 
 // ---------- state
 let mode = 'idle';
@@ -87,8 +80,6 @@ let micLevel = 0, lastRms = 0, meterUiT = 0;
 let calibrating = false, calSamples = [], threshold = null, bargeCount = 0;
 let sim = null;      // { osc, g, an, startPerf, timer }
 let fps = null;      // { t0, ts }
-let lastKey = '';
-const eye = createEye();
 
 const modeButtons = document.querySelectorAll('[data-mode]');
 
@@ -182,7 +173,7 @@ async function micStart() {
     setMicMsg('The microphone could not start. Simulate reply still works.');
     return;
   }
-  setMicMsg('Microphone on. Speak or make a noise to see the orb react.');
+  setMicMsg('Microphone on. Speak or make a noise to see the cloud react.');
   setMode('listening', 'microphone on');
   updateUi();
 }
@@ -372,10 +363,11 @@ function fpsFinish() {
 
 // ---------- UI
 function detailText() {
-  if (orbMessage) return orbMessage;
-  if (mode === 'listening') return micStream ? 'Listening. The rim and glow follow the microphone level.' : 'Attentive pulse. Start the microphone to react to your voice.';
-  if (mode === 'speaking') return sim ? 'Speaking. Reacting to the test voice playing from this phone.' : 'Speaking pulse, with no audio. Use Simulate reply to react to real sound.';
-  return MOTION_TEXT[mode];
+  if (avatarMessage) return avatarMessage;
+  if (mode === 'listening') return micStream ? 'Listening. The glow follows the microphone level. Audio stays on this phone.' : 'Attentive. Start the microphone to see the glow follow your voice.';
+  if (mode === 'speaking') return sim ? 'Speaking. The mouth follows the level of the test voice playing from this phone.' : 'Speaking, with no audio. The mouth stays closed until real sound plays. Use Simulate reply.';
+  if (mode === 'error') return `${cloudView ? cloudView.hintFor(mode) : ''} Tap Idle to clear it.`;
+  return cloudView ? cloudView.hintFor(mode) : '';
 }
 
 function updateUi() {
@@ -421,31 +413,21 @@ function frame(now) {
     }
   }
 
-  let speak = 0;
-  if (sim) speak = clamp(rmsOf(sim.an) * 7);
-  else if (mode === 'speaking') speak = reduced ? 0.35 : speechEnvelope(now / 1000) * 0.7;
-
-  const level = micStream ? micLevel : (reduced ? 0.15 : 0.22 + 0.05 * Math.sin(now / 600));
-  const tgt = targetsFor(mode, { level, speak, paused, reduced });
-  // Simulated eye: gaze, blink, lid openness and pupil. No camera is used.
-  const e = eye.step(now / 1000, mode, { level, speak, reduced, paused });
-  tgt.gx = e.gx;
-  tgt.gy = e.gy;
-  tgt.open = e.open;
-  tgt.pupil = e.pupil;
-  tgt.now = now;
-
-  if (!orb) return;
-  if (reduced) {
-    // Reduced motion: draw only when the visible values change, not every frame.
-    const key = [mode, paused, Math.round(tgt.level * 40), Math.round(tgt.speak * 40)].join('|');
-    if (key === lastKey) return;
-    lastKey = key;
-  }
-  orb.draw(tgt);
+  if (!cloudView) return;
+  // Real levels only. Listening uses the microphone analyser. Speaking uses the output analyser
+  // of the test voice. With no real audio the level is 0, so no mouth movement is faked.
+  const outLevel = sim ? clamp(rmsOf(sim.an) * 7) : 0;
+  cloudView.setMode(mode);
+  cloudView.setInputLevel(micStream ? micLevel : 0);
+  cloudView.setOutputLevel(outLevel);
+  // Paused: the cloud is frozen (no update), not drawn with new values.
+  if (paused) return;
+  cloudView.update(now);
 }
 
 // ---------- wiring
+// Cursor and touch move the cloud's attention, as on the cloud prototype.
+if (cloudView) bindPointer($('orb'), $('stage'), cloudView);
 for (const b of modeButtons) {
   b.addEventListener('click', () => setMode(b.dataset.mode, 'button'));
 }
@@ -475,7 +457,7 @@ $('copyBtn').addEventListener('click', async () => {
   setTimeout(() => { $('copyBtn').textContent = 'Copy results'; }, 3000);
 });
 
-// Hidden or closed page: stop the microphone and the test voice, and pause the orb.
+// Hidden or closed page: stop the microphone and the test voice, and freeze the cloud.
 document.addEventListener('visibilitychange', () => { if (document.hidden) hideStop('page hidden'); });
 addEventListener('pagehide', () => hideStop('page closed'));
 

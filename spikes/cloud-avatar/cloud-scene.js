@@ -200,11 +200,17 @@ export function poseAttrs(p) {
     gazeR: { transform: gaze },
     smile: { d: smileD(p.smile) },
     // Open mouth: narrower than the smile and hanging just below it, so it reads as talking.
-    mouthOpen: {
-      rx: f(4.5 + 3 * p.mouthOpen),
-      ry: f(0.8 + 7 * p.mouthOpen),
-      cy: f(MOUTH.y + 1 + (0.8 + 7 * p.mouthOpen) * 0.35),
-      'fill-opacity': f(Math.min(1, p.mouthOpen * 3)),
-    },
+    // Vowel-like width: wide shapes are flatter, round shapes are taller. Both stay narrow.
+    mouthOpen: (() => {
+      const w = p.mouthWide ?? 0;
+      const rx = (4.5 + 3 * p.mouthOpen) * (1 + 0.16 * w);
+      const ry = (0.8 + 7 * p.mouthOpen) * (1 - 0.14 * w);
+      return {
+        rx: f(rx),
+        ry: f(ry),
+        cy: f(MOUTH.y + 1 + ry * 0.35),
+        'fill-opacity': f(Math.min(1, p.mouthOpen * 3)),
+      };
+    })(),
   };
 }
