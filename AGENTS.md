@@ -54,9 +54,20 @@ Read the relevant `SKILL.md` before doing that kind of work.
 | Motion performance | `animation-performance`, `fixing-motion-performance` | via podo/design-agent-skills catalogue |
 | GSAP (only if chosen) | `gsap-core`, `gsap-timeline`, `gsap-react`, `gsap-performance`, `gsap-utils` | greensock/gsap-skills |
 | Accessibility / baseline UI | `fixing-accessibility`, `baseline-ui` | ibelick/ui-skills |
+| Avatar / character design (OC, visual DNA, image-gen prompts) | `ai-avatar` | Pancat009/ai-avatar-skill |
 
 Provenance and hashes for skills installed with `npx skills` are in `skills-lock.json`.
-`ui-ux-pro-max` was installed by its own CLI and is not in that lockfile.
+`ui-ux-pro-max` was installed by its own CLI and is not in that lockfile. `ai-avatar` was
+installed directly from github.com/Pancat009/ai-avatar-skill (MIT, commit `ca4ee96`) and
+is not in that lockfile either.
+
+For Claude Code, each skill is exposed at `.claude/skills/<name>` as a symlink to
+`.agents/skills/<name>` (Claude Code does not scan `.agents/skills/` on its own).
+Keep `.agents/skills/` as the single source of truth; when adding a skill, link it:
+
+```bash
+ln -s "../../.agents/skills/<name>" ".claude/skills/<name>"
+```
 
 ## How to use ui-ux-pro-max here
 
