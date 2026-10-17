@@ -36,6 +36,8 @@ body {
   -webkit-user-select: none;
 }
 #cloud {
+  /* Own compositing layer: the animated body and the page background are not repainted together. */
+  will-change: transform;
   width: min(82vw, 360px);
   height: auto;
   aspect-ratio: 360 / 320;
