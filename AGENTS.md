@@ -122,3 +122,15 @@ Only persist a design system (`--persist`) once the user approves a direction.
 2. Orb rendering approach (CSS/SVG, canvas, WebGL/shader) - drives which motion skills apply.
 3. Whether to adopt GSAP, Framer Motion, or CSS-only motion (install matching skills only after deciding).
 4. Voice/LLM providers and where API keys live.
+
+## API discovery reference (read-only, not installed into this repo)
+
+For potential API integrations (translation, dictionaries, speech, AI/ML, etc.),
+consult the local checkout of the [public-apis catalogue](https://github.com/public-apis/public-apis)
+at `~/references/public-apis/README.md` (MIT; category index near the top of the README).
+It is a catalogue, not a dependency: never add APIs, SDKs, or packages automatically.
+
+Before recommending any API, check its official documentation, authentication type
+(the catalogue's Auth column), pricing, rate limits, availability, privacy/data
+handling, reliability, and licence - and confirm with the user first. Keys live only
+in environment variables or the backend; never in frontend code or git.
