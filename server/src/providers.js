@@ -11,6 +11,7 @@
  * of pretending to work — the UI surfaces this honestly.
  */
 import { setTimeout as delay } from 'node:timers/promises';
+import { extractFinalAnswer, createThinkFilter } from './final-answer.js';
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS ?? 30_000);
 const DEFAULT_MAX_RETRIES = Number(process.env.MODEL_MAX_RETRIES ?? 2);
@@ -112,7 +113,9 @@ export async function apiFetch(url, { apiKey, timeoutMs = DEFAULT_TIMEOUT_MS, ma
 }
 
 /**
- * Read a Chat-Completions-style JSON response safely.
+ * Read a Chat-Completions-style JSON response safely and extract ONLY the
+ * user-facing final answer (reasoning channels are dropped at the source —
+ * see final-answer.js for the per-provider evidence).
  * @param {Response} res
  */
 async function readCompletion(res) {
@@ -124,11 +127,76 @@ async function readCompletion(res) {
   }
   const choice = data?.choices?.[0];
   if (!choice) throw new ProviderError('provider', 'AI provider response had no choices.');
-  const text = choice?.message?.content;
-  if (typeof text !== 'string') {
-    throw new ProviderError('provider', 'AI provider response had no message content.');
+  const { answer, hadReasoning } = extractFinalAnswer(choice?.message ?? null);
+  if (!answer) {
+    // Reasoning-only or empty content: never fabricate, never forward reasoning.
+    throw new ProviderError('provider', 'AI provider returned no answer content.');
   }
-  return { text, usage: data.usage ?? null, model: data.model ?? choice?.model ?? null };
+  return { text: answer, hadReasoning, usage: data.usage ?? null, model: data.model ?? choice?.model ?? null };
+}
+
+/**
+ * Read an SSE chat-completions stream, yielding answer deltas through
+ * `onDelta` (reasoning deltas and inline think blocks never pass), and
+ * resolving with the full cleaned answer text.
+ * @param {Response} res
+ * @param {(delta: string) => void} onDelta
+ */
+async function readStream(res, onDelta) {
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    throw new ProviderError('provider', 'AI provider returned no stream body.');
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  const filter = createThinkFilter();
+  /** @type {string[]} */
+  const parts = [];
+  let sse = ''; // partial SSE line carry between chunks
+  let model = null;
+  let sawAnyData = false;
+  let finish = null;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    sse += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = sse.indexOf('\n')) >= 0) {
+      const line = sse.slice(0, nl).trim();
+      sse = sse.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') continue;
+      let j;
+      try {
+        j = JSON.parse(payload);
+      } catch {
+        continue; // malformed SSE line — skip, keep the stream alive
+      }
+      sawAnyData = true;
+      if (!model && typeof j.model === 'string') model = j.model;
+      const choice = j.choices?.[0];
+      if (choice?.finish_reason) finish = choice.finish_reason;
+      const delta = choice?.delta ?? {};
+      const out = filter.delta(delta);
+      if (out) {
+        parts.push(out);
+        onDelta?.(out);
+      }
+    }
+  }
+  const tail = filter.flush();
+  if (tail) {
+    parts.push(tail);
+    onDelta?.(tail);
+  }
+  if (!sawAnyData) {
+    throw new ProviderError('provider', 'AI provider stream ended without any events.');
+  }
+  const text = parts.join('');
+  if (!text) {
+    throw new ProviderError('provider', filter.hadReasoning ? 'The model reasoned but returned no answer.' : 'AI provider returned an empty answer.');
+  }
+  return { text, hadReasoning: filter.hadReasoning, model, finishReason: finish };
 }
 
 /**
@@ -177,6 +245,36 @@ function openAiCompatible(baseEnv, keyEnv, label, defaultModel, models = []) {
         signal,
       });
       return readCompletion(res);
+    },
+    /**
+     * Streaming variant: `onDelta` receives user-facing answer deltas only
+     * (reasoning deltas and inline think blocks are dropped server-side, so
+     * they can never reach the UI or speech pipeline). Resolves with the full
+     * cleaned answer once the stream completes.
+     * @param {{messages: Array<{role: string, content: string}>, model?: string, signal?: AbortSignal, temperature?: number}} req
+     * @param {(delta: string) => void} [onDelta]
+     */
+    async stream({ messages, model, signal, temperature }, onDelta) {
+      const baseURL = process.env[baseEnv];
+      const apiKey = process.env[keyEnv];
+      if (!baseURL || !apiKey) {
+        throw new ProviderError('no_key', 'No AI provider key is configured on the server. Add one to enable live responses.');
+      }
+      const res = await apiFetch(new URL('chat/completions', baseURL.endsWith('/') ? baseURL : `${baseURL}/`).href, {
+        method: 'POST',
+        apiKey,
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify({
+          ...(model ?? process.env.MODEL_ID ?? defaultModel
+            ? { model: model ?? process.env.MODEL_ID ?? defaultModel }
+            : {}),
+          messages,
+          ...(temperature !== undefined ? { temperature } : {}),
+          stream: true,
+        }),
+        signal,
+      });
+      return readStream(res, onDelta);
     },
   };
 }

@@ -83,6 +83,104 @@ describe('providers', () => {
     assert.equal(resolveProvider('nonexistent').info().id, 'dahl');
     assert.equal(resolveProvider().info().id, 'dahl');
   });
+
+  test('chat strips inline reasoning from content before returning (MiniMax shape)', async () => {
+    process.env.DAHL_API_KEY = 'test-key';
+    process.env.DAHL_BASE_URL = 'https://example.invalid/v1';
+    const OPEN = '<' + 'think' + '>';
+    const CLOSE = '</' + 'think' + '>';
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: new Map(),
+      json: async () => ({
+        model: 'minimax',
+        choices: [{ message: { role: 'assistant', content: OPEN + 'reasoning about pidgin' + CLOSE + 'I dey!' } }],
+      }),
+    });
+    const result = await dahl.chat({ messages: [{ role: 'user', content: 'you dey?' }] });
+    assert.equal(result.text, 'I dey!');
+    assert.equal(result.hadReasoning, true);
+  });
+
+  test('chat never returns the separate reasoning field (DeepSeek/GLM shape)', async () => {
+    process.env.DAHL_API_KEY = 'test-key';
+    process.env.DAHL_BASE_URL = 'https://example.invalid/v1';
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: new Map(),
+      json: async () => ({
+        model: 'deepseek',
+        choices: [{ message: { role: 'assistant', content: 'Clean answer', reasoning: 'private chain of thought' } }],
+      }),
+    });
+    const result = await dahl.chat({ messages: [{ role: 'user', content: 'hey' }] });
+    assert.equal(result.text, 'Clean answer');
+    assert.ok(!result.text.includes('private'));
+    assert.equal(result.hadReasoning, true);
+  });
+
+  test('reasoning-only response errors honestly instead of returning reasoning', async () => {
+    process.env.DAHL_API_KEY = 'test-key';
+    process.env.DAHL_BASE_URL = 'https://example.invalid/v1';
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: new Map(),
+      json: async () => ({
+        model: 'm',
+        choices: [{ message: { role: 'assistant', content: '', reasoning: 'all reasoning, no answer' } }],
+      }),
+    });
+    await assert.rejects(
+      () => dahl.chat({ messages: [{ role: 'user', content: 'x' }] }),
+      (err) => err instanceof ProviderError && err.kind === 'provider'
+    );
+  });
+
+  test('stream() yields answer deltas only and reports the cleaned full text', async () => {
+    process.env.DAHL_API_KEY = 'test-key';
+    process.env.DAHL_BASE_URL = 'https://example.invalid/v1';
+    // Simulated SSE: reasoning deltas first, then answer deltas, then [DONE].
+    const lines = [
+      'data: {"choices":[{"delta":{"reasoning":"thinking..."}}]}',
+      '',
+      'data: {"choices":[{"delta":{"reasoning_content":"more thoughts"}}]}',
+      '',
+      'data: {"choices":[{"delta":{"content":"I "}}]}',
+      '',
+      'data: {"choices":[{"delta":{"content":"dey!"}}]}',
+      '',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+      '',
+      'data: [DONE]',
+      '',
+    ];
+    let sent = false;
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: new Map([['content-type', 'text/event-stream']]),
+      body: {
+        getReader() {
+          let sent_ = false;
+          return {
+            read: async () => {
+              if (sent) return { done: true };
+              sent = true;
+              return { done: false, value: Buffer.from(lines.join('\n') + '\n') };
+            },
+          };
+        },
+      },
+    });
+    const deltas = [];
+    const result = await dahl.stream({ messages: [{ role: 'user', content: 'hey' }] }, (d) => deltas.push(d));
+    assert.deepEqual(deltas, ['I ', 'dey!']);
+    assert.equal(result.text, 'I dey!');
+    assert.equal(result.hadReasoning, true);
+  });
 });
 
 describe('persona', () => {
