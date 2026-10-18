@@ -6,6 +6,7 @@
 import './styles.css';
 import { Hud, type HudState } from './hud';
 import { Voice, voiceSupport } from './voice';
+import { createSpeechQueue } from './speech-queue';
 import { api } from './api';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -89,7 +90,39 @@ let phase: Phase = 'boot';
 let conversationId: string | null = null;
 let abortChat: AbortController | null = null;
 
+/* ---------- speech output (sentence-queue TTS) ----------
+ * Speaks only the final answer, sentence by sentence, starting at the first
+ * complete sentence instead of waiting for the whole reply. HUD level pulses
+ * come from real utterance progress (boundary events), not random motion. */
 const support = voiceSupport();
+let activeQueue: ReturnType<typeof createSpeechQueue> | null = null;
+
+function cancelSpeechNow() {
+  activeQueue?.cancel();
+  activeQueue = null;
+  voice.cancelSpeech();
+}
+
+const speechSynthAvailable =
+  support.synthesis && 'speechSynthesis' in window ? window.speechSynthesis : null;
+
+function startSpeechQueue(): ReturnType<typeof createSpeechQueue> {
+  cancelSpeechNow(); // never overlap with leftover speech
+  const queue = createSpeechQueue(speechSynthAvailable!, {
+    onSpeakStart: () => {
+      setPhase('speaking');
+    },
+    onLevel: (v) => {
+      if (phase === 'speaking') hud.setLevel(v);
+    },
+    onDone: () => {
+      if (phase === 'speaking') toIdle();
+      activeQueue = null;
+    },
+  });
+  activeQueue = queue;
+  return queue;
+}
 const voice = new Voice({
   onPartial: (text) => setPartial(text),
   onFinal: (text) => {
@@ -227,7 +260,7 @@ async function refreshHistory() {
 async function openConversation(id: string) {
   if (phase === 'thinking' || phase === 'speaking' || phase === 'listening') {
     abortChat?.abort();
-    voice.cancelSpeech();
+    cancelSpeechNow();
     if (phase === 'listening') voice.stop();
   }
   try {
@@ -290,7 +323,7 @@ historyToggle.addEventListener('click', () => {
 newChatBtn.addEventListener('click', () => {
   if (phase === 'listening') voice.stop();
   abortChat?.abort();
-  voice.cancelSpeech();
+  cancelSpeechNow();
   conversationId = null;
   transcript.textContent = '';
   partialEl = null;
@@ -311,18 +344,41 @@ async function submit(text: string) {
     addMessage('user', message);
   }
   input.value = '';
-  voice.cancelSpeech();
+  cancelSpeechNow();
   setPhase('thinking');
   abortChat = new AbortController();
+  // Streaming: answer deltas render into a growing bubble and feed the
+  // sentence-queue TTS, so the first audible sentence starts as soon as the
+  // text exists. Deltas are already reasoning-free (server-side extraction).
+  let bubble: HTMLElement | null = null;
+  let bubbleBody: HTMLElement | null = null;
+  const queue = speechSynthAvailable ? startSpeechQueue() : null;
   try {
     const cid = await ensureConversation();
-    const { reply } = await api.chat(cid, message, abortChat.signal);
-    addMessage('assistant', reply);
+    const { reply, model } = await api.chatStream(cid, message, {
+      signal: abortChat.signal,
+      onDelta: (delta) => {
+        if (!bubble || !bubbleBody) {
+          bubble = addMessage('assistant', delta);
+          bubbleBody = bubble.querySelector('.body') as HTMLElement;
+        } else {
+          bubbleBody.textContent += delta;
+          transcript.scrollTop = transcript.scrollHeight;
+        }
+        queue?.enqueue(delta);
+      },
+    });
     void refreshHistory();
-    setPhase('speaking');
-    voice.speak(reply, { onEnd: toIdle });
-    // Safety: if synthesis is unsupported, onEnd fires immediately → idle.
+    queue?.finish();
+    if (!queue) {
+      // No speech support in this browser — the streamed bubble is the answer.
+      setPhase('idle');
+    }
+    // With synthesis: the queue drives speaking → idle via onDone.
+    void model; // (kept for future provider label display)
+    void reply; // bubble already shows the streamed text
   } catch (err) {
+    queue?.cancel();
     if (err instanceof DOMException && err.name === 'AbortError') {
       toIdle();
       return;
@@ -350,21 +406,21 @@ micBtn.addEventListener('click', () => {
     voice.stop();
     return;
   }
-  if (phase === 'speaking') voice.cancelSpeech();
+  if (phase === 'speaking') cancelSpeechNow();
   setPhase('listening');
   void voice.start();
 });
 
 stopBtn.addEventListener('click', () => {
   abortChat?.abort();
-  voice.cancelSpeech();
+  cancelSpeechNow();
   toIdle();
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     abortChat?.abort();
-    voice.cancelSpeech();
+    cancelSpeechNow();
     if (phase === 'listening') voice.stop();
     toIdle();
   }

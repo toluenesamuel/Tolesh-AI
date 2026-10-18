@@ -2,6 +2,7 @@
  * API client — typed, with honest error mapping from the server's
  * { error: { kind, message, retryAfterMs } } responses.
  */
+import { readSse } from './sse';
 
 export type ProviderInfo = {
   id: string;
@@ -96,4 +97,73 @@ export const api = {
       body: JSON.stringify({ conversationId, message }),
       signal,
     }),
+
+  /**
+   * One conversation turn, streamed: answer deltas (already stripped of
+   * reasoning server-side) arrive through `onDelta` as the model speaks,
+   * and the promise resolves with the full cleaned reply once done.
+   */
+  chatStream: async (
+    conversationId: string,
+    message: string,
+    opts: { onDelta?: (delta: string) => void; signal?: AbortSignal } = {}
+  ): Promise<{ reply: string; model: string | null; conversationId: string }> => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, message }),
+        signal: opts.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      throw new ApiError('network', 'Cannot reach the Tolesh server. Is it running?', 0);
+    }
+    if (!res.ok) {
+      // Provider failed before anything streamed — the server answered with
+      // an honest JSON error (502/503/429), same shape as the non-stream route.
+      let kind: ChatErrorKind = 'internal';
+      let message = `Request failed (${res.status}).`;
+      let retryAfterMs: number | null = null;
+      try {
+        const body = (await res.json()) as { error?: { kind?: string; message?: string; retryAfterMs?: number | null } };
+        if (body?.error) {
+          kind = (body.error.kind as ChatErrorKind) ?? kind;
+          message = body.error.message ?? message;
+          retryAfterMs = body.error.retryAfterMs ?? null;
+        }
+      } catch {
+        /* non-JSON error body — keep defaults */
+      }
+      throw new ApiError(kind, message, res.status, retryAfterMs);
+    }
+
+    let reply = '';
+    let model: string | null = null;
+    let conversationIdOut = conversationId;
+    let streamError: ApiError | null = null;
+    await readSse(res, (name, data) => {
+      if (name === 'message' && typeof (data as { delta?: unknown })?.delta === 'string') {
+        const delta = (data as { delta: string }).delta;
+        reply += delta;
+        opts.onDelta?.(delta);
+      } else if (name === 'done' && typeof data === 'object' && data !== null) {
+        const d = data as { conversationId?: string; model?: string | null };
+        if (typeof d.conversationId === 'string') conversationIdOut = d.conversationId;
+        if (typeof d.model === 'string') model = d.model;
+      } else if (name === 'error' && typeof data === 'object' && data !== null) {
+        const e = (data as { error?: { kind?: string; message?: string; retryAfterMs?: number | null } }).error;
+        streamError = new ApiError(
+          (e?.kind as ChatErrorKind) ?? 'provider',
+          e?.message ?? 'The assistant stream failed mid-answer.',
+          200,
+          e?.retryAfterMs ?? null
+        );
+      }
+      // Non-JSON or unknown event payloads are ignored (garbage filtering).
+    });
+    if (streamError) throw streamError;
+    return { reply, model, conversationId: conversationIdOut };
+  },
 };
