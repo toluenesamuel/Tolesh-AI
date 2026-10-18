@@ -4,3 +4,11 @@
 node_modules/
 __pycache__/
 *.pyc
+
+# Tolesh runtime artifacts
+server/data/
+web/dist/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

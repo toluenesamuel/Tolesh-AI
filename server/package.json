@@ -1,0 +1,21 @@
+{
+  "name": "tolesh-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tolesh AI backend — provider-adapter conversation API with conversation persistence",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
