@@ -36,6 +36,8 @@ export type SpeechQueueOptions = {
   onLevel?: (level: number) => void;
   /** All queued text has been spoken. Not fired after cancel(). */
   onDone?: () => void;
+  /** Utterance rate (Web Speech 0.5..2). Default 1.02. */
+  rate?: number;
 };
 
 export function createSpeechQueue(
@@ -69,7 +71,7 @@ export function createSpeechQueue(
     opts.onSpeakStart?.();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = navigator.language || 'en-NG';
-    utter.rate = 1.02;
+    utter.rate = opts.rate ?? 1.02;
     // HUD pulse from real utterance progress: boundary events fire as the
     // engine advances through the text. Engines without boundary support
     // still get the onSpeakStart pulse.

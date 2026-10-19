@@ -8,6 +8,7 @@ import { Hud, type HudState } from './hud';
 import { Voice, voiceSupport } from './voice';
 import { createSpeechQueue } from './speech-queue';
 import { api } from './api';
+import { loadSettings, saveSettings, shouldResumeListening, type ToleshSettings } from './settings';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -21,6 +22,8 @@ app.innerHTML = `
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">connecting…</span>
       </div>
+      <button type="button" class="btn ghost" id="settings-toggle" aria-expanded="false"
+              aria-controls="settings-panel" aria-label="Toggle settings">⚙ Settings</button>
     </header>
 
     <div class="shell">
@@ -52,6 +55,34 @@ app.innerHTML = `
     </form>
 
     <p class="footnote" id="footnote"></p>
+
+    <section class="settings" id="settings-panel" hidden aria-label="Settings">
+      <h2>Settings</h2>
+      <label class="setting-row">
+        <input type="checkbox" id="setting-speech" />
+        <span>Speak replies aloud</span>
+      </label>
+      <label class="setting-row">
+        <span>Speech rate</span>
+        <input type="range" id="speech-rate" min="0.5" max="2" step="0.1" aria-label="Speech rate" />
+        <output id="rate-out" for="speech-rate"></output>
+      </label>
+      <label class="setting-row">
+        <input type="checkbox" id="hands-free" />
+        <span>Hands-free (listen again after each reply)</span>
+      </label>
+      <p class="setting-note">Settings are stored only in this browser (localStorage). Nothing is sent anywhere.</p>
+    </section>
+
+    <aside class="onboarding" id="onboarding" hidden aria-label="Welcome">
+      <p><strong>Hi, I'm Tolesh.</strong></p>
+      <p>
+        Talk with the 🎙 button (Chromium browsers), or just type. Replies stream in as text and are spoken
+        sentence by sentence. Press <b>Stop</b> or <b>Escape</b> any time to interrupt me. Your conversations
+        stay on this machine, and you can delete or export them from History.
+      </p>
+      <button type="button" class="btn" id="onboarding-ok">Got it</button>
+    </aside>
   </div>
 `;
 
@@ -71,6 +102,14 @@ const historyToggle = document.querySelector<HTMLButtonElement>('#history-toggle
 const historyList = document.querySelector<HTMLUListElement>('#history-list')!;
 const historyEmpty = document.querySelector<HTMLElement>('#history-empty')!;
 const newChatBtn = document.querySelector<HTMLButtonElement>('#new-chat')!;
+const settingsPanel = document.querySelector<HTMLElement>('#settings-panel')!;
+const speechToggle = document.querySelector<HTMLInputElement>('#setting-speech')!;
+const rateSlider = document.querySelector<HTMLInputElement>('#speech-rate')!;
+const rateOut = document.querySelector<HTMLOutputElement>('#rate-out')!;
+const handsFreeToggle = document.querySelector<HTMLInputElement>('#hands-free')!;
+const onboardingCard = document.querySelector<HTMLElement>('#onboarding')!;
+const onboardingOk = document.querySelector<HTMLButtonElement>('#onboarding-ok')!;
+const settingsToggle = document.querySelector<HTMLButtonElement>('#settings-toggle')!;
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Graceful degradation: if canvas 2D is unavailable the app still works —
@@ -89,6 +128,9 @@ type Phase = 'boot' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 let phase: Phase = 'boot';
 let conversationId: string | null = null;
 let abortChat: AbortController | null = null;
+
+/* ---------- settings (localStorage, storage-block safe) ---------- */
+let settings: ToleshSettings = loadSettings();
 
 /* ---------- speech output (sentence-queue TTS) ----------
  * Speaks only the final answer, sentence by sentence, starting at the first
@@ -109,6 +151,7 @@ const speechSynthAvailable =
 function startSpeechQueue(): ReturnType<typeof createSpeechQueue> {
   cancelSpeechNow(); // never overlap with leftover speech
   const queue = createSpeechQueue(speechSynthAvailable!, {
+    rate: settings.speechRate,
     onSpeakStart: () => {
       setPhase('speaking');
     },
@@ -118,6 +161,11 @@ function startSpeechQueue(): ReturnType<typeof createSpeechQueue> {
     onDone: () => {
       if (phase === 'speaking') toIdle();
       activeQueue = null;
+      // Hands-free: after a fully-spoken reply, listen again automatically.
+      if (shouldResumeListening(settings, support) && phase === 'idle') {
+        setPhase('listening');
+        void voice.start();
+      }
     },
   });
   activeQueue = queue;
@@ -223,6 +271,73 @@ async function ensureConversation() {
   return conversationId;
 }
 
+/* ---------- settings panel ---------- */
+
+function reflectSettings() {
+  speechToggle.checked = settings.speechEnabled;
+  rateSlider.value = String(settings.speechRate);
+  rateOut.value = settings.speechRate.toFixed(1) + '×';
+  handsFreeToggle.checked = settings.handsFree;
+  speechToggle.disabled = !speechSynthAvailable;
+  rateSlider.disabled = !speechSynthAvailable;
+}
+
+function changeSettings(change: Partial<ToleshSettings>) {
+  settings = saveSettings(settings, change);
+  reflectSettings();
+  // If speech was just switched off mid-sentence, stop now; switching it on
+  // takes effect on the next reply (the queue is created per turn).
+  if (settings.speechEnabled === false) cancelSpeechNow();
+}
+
+speechToggle.addEventListener('change', () => changeSettings({ speechEnabled: speechToggle.checked }));
+rateSlider.addEventListener('input', () => changeSettings({ speechRate: Number(rateSlider.value) }));
+handsFreeToggle.addEventListener('change', () => changeSettings({ handsFree: handsFreeToggle.checked }));
+
+settingsToggle.addEventListener('click', () => {
+  const willShow = settingsPanel.hidden;
+  settingsPanel.hidden = !willShow;
+  settingsToggle.setAttribute('aria-expanded', String(willShow));
+});
+
+/* ---------- onboarding (first run only) ---------- */
+const ONBOARDING_KEY = 'tolesh.onboarded.v1';
+function seenOnboarding(): boolean {
+  try {
+    return window.localStorage.getItem(ONBOARDING_KEY) === '1';
+  } catch {
+    return true; // storage blocked — don't nag; the footnote carries the info
+  }
+}
+if (!seenOnboarding()) onboardingCard.hidden = false;
+onboardingOk.addEventListener('click', () => {
+  onboardingCard.hidden = true;
+  try {
+    window.localStorage.setItem(ONBOARDING_KEY, '1');
+  } catch {
+    // storage blocked — explainer will show again next load; acceptable
+  }
+});
+
+/* ---------- conversation export (privacy + recovery) ---------- */
+async function exportConversation(id: string) {
+  try {
+    const { conversation } = await api.getConversation(id);
+    const blob = new Blob([JSON.stringify(conversation, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tolesh-${conversation.id}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Could not export conversation.';
+    addMessage('assistant', `⚠️ ${msg}`, 'error-msg');
+  }
+}
+
 /* ---------- conversation history (P4) ---------- */
 
 function historyRow(id: string, title: string): HTMLLIElement {
@@ -242,7 +357,13 @@ function historyRow(id: string, title: string): HTMLLIElement {
   del.textContent = '✕';
   del.setAttribute('aria-label', `Delete conversation: ${title}`);
   del.addEventListener('click', () => void deleteConversation(id, del));
-  li.append(open, del);
+  const exp = document.createElement('button');
+  exp.type = 'button';
+  exp.className = 'history-export';
+  exp.textContent = '⬇';
+  exp.setAttribute('aria-label', `Export conversation: ${title}`);
+  exp.addEventListener('click', () => void exportConversation(id));
+  li.append(open, del, exp);
   return li;
 }
 
@@ -352,7 +473,7 @@ async function submit(text: string) {
   // text exists. Deltas are already reasoning-free (server-side extraction).
   let bubble: HTMLElement | null = null;
   let bubbleBody: HTMLElement | null = null;
-  const queue = speechSynthAvailable ? startSpeechQueue() : null;
+  const queue = speechSynthAvailable && settings.speechEnabled ? startSpeechQueue() : null;
   try {
     const cid = await ensureConversation();
     const { reply, model } = await api.chatStream(cid, message, {
@@ -371,7 +492,7 @@ async function submit(text: string) {
     void refreshHistory();
     queue?.finish();
     if (!queue) {
-      // No speech support in this browser — the streamed bubble is the answer.
+      // Speech disabled or unsupported — the streamed bubble is the answer.
       setPhase('idle');
     }
     // With synthesis: the queue drives speaking → idle via onDone.
@@ -428,6 +549,7 @@ document.addEventListener('keydown', (e) => {
 
 async function boot() {
   setFootnote();
+  reflectSettings();
   void refreshHistory();
   try {
     const { providers, active } = await api.providers();

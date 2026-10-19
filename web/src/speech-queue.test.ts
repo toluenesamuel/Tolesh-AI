@@ -160,4 +160,17 @@ describe('speech queue', () => {
     expect(spoken[0]).toBe('Summary');
     expect(spoken).toContain('Fast replies, see docs.');
   });
+
+  test('speech rate from settings is applied to utterances', async () => {
+    const { synth, spoken } = fakeSynth();
+    const onDone = vi.fn();
+    const queue = createSpeechQueue(synth as unknown as SpeechSynthesis, { rate: 1.4, onDone });
+    queue.enqueue('Faster speech.');
+    queue.finish();
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    const utter = (synth.speak as ReturnType<typeof vi.fn>).mock.calls[0]![0] as { rate: number; text: string };
+    expect(utter.rate).toBe(1.4);
+    expect(utter.text).toBe('Faster speech.');
+    expect(spoken).toEqual(['Faster speech.']);
+  });
 });

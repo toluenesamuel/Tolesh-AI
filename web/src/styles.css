@@ -126,6 +126,18 @@ html, body {
 }
 .history-delete:hover { color: var(--error); background: rgba(251, 113, 133, 0.1); }
 .history-delete.armed { color: #fda4af; border-color: rgba(251, 113, 133, 0.5); }
+.history-export {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 8px;
+  cursor: pointer;
+  flex: none;
+}
+.history-export:hover { color: var(--cyan-bright); background: rgba(34, 211, 238, 0.1); }
 .history-empty { color: var(--text-3); font-size: 0.8rem; margin: 4px 0; }
 .btn.ghost {
   background: transparent;
@@ -328,6 +340,51 @@ html, body {
   line-height: 1.5;
 }
 .footnote a { color: var(--text-2); }
+
+/* ---------- settings panel ---------- */
+.settings {
+  margin: 0 auto;
+  max-width: 640px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(8, 15, 30, 0.72);
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.settings h2 {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 0.85rem;
+}
+.setting-row input[type='range'] { flex: 1; accent-color: var(--cyan-bright); }
+.setting-row output { min-width: 3.2em; text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.setting-note { color: var(--text-3); font-size: 0.72rem; margin: 8px 0 0; }
+
+/* ---------- onboarding ---------- */
+.onboarding {
+  margin: 12px auto 0;
+  max-width: 640px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: rgba(8, 15, 30, 0.85);
+  color: var(--text-2);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.onboarding p { margin: 0 0 8px; }
+.onboarding .btn { margin-top: 4px; }
 
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
