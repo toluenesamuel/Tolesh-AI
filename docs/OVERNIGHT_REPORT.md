@@ -119,4 +119,57 @@ Also added in this round (file-complete, pending verification):
 - Installed `playwright-core` (web devDependency, drives system Chrome — no browser download) and added `web/e2e/verify-ui.mjs`: boots both servers, then checks in a real browser — boot status pill, HUD canvas render, idle state label, text chat → honest `no_key` error as last transcript bubble, history list/open/delete, New-chat reset, no unexpected console errors.
 - Running it surfaced 3 real UI bugs, fixed in `web/src/styles.css`: transcript bubbles scrolled under the state label (now `z-index: 2` + HUD `padding-bottom: 14px`) and the first bubble sat under it (`.transcript { margin-top: 12px }`).
 - Result: **9/9 checks pass** against the live servers; `scripts/verify.sh` re-run after the CSS fixes — all phases green.
+### Post-mission follow-up (2026-10-18, after system restart) — browser E2E executed ✅
+- Installed `playwright-core` (web devDependency, drives system Chrome — no browser download) and added `web/e2e/verify-ui.mjs`: boots both servers, then checks in a real browser — boot status pill, HUD canvas render, idle state label, text chat → honest `no_key` error as last transcript bubble, history list/open/delete, New-chat reset, no unexpected console errors.
+- Running it surfaced 3 real UI bugs, fixed in `web/src/styles.css`: transcript bubbles scrolled under the state label (now `z-index: 2` + HUD `padding-bottom: 14px`) and the first bubble sat under it (`.transcript { margin-top: 12px }`).
+- Result: **9/9 checks pass** against the live servers; `scripts/verify.sh` re-run after the CSS fixes — all phases green.
 - Still open: real-device testing, live Dahl call (key), server-side ASR/TTS decision.
+
+---
+
+# Session 2 (2026-10-19, overnight) — everyday-assistant + feature audit
+
+Continuation mission: JARVIS reference analysis from real source, feature audit, desktop-control MCP evaluation, everyday-assistant features, real E2E acceptance tests.
+
+## Session 2 status board
+
+| Phase | Status |
+|---|---|
+| JARVIS reference analysis | ✅ `docs/JARVIS_REFERENCE_ANALYSIS.md` — 5 clones inspected from source, nothing executed, [C]/[U] labeled, secrets scan clean |
+| spec-miner skill | ✅ installed `.agents/skills/spec-miner/` + `.claude/skills/` symlink |
+| Feature audit | ✅ `docs/FEATURE_AUDIT.md` — every feature classified with the suite/check that proves it |
+| Everyday: settings panel | ✅ speech on/off, rate 0.5–2×, hands-free; localStorage, clamped, storage-block safe; 13 unit + e2e 8/8 |
+| Everyday: onboarding | ✅ first-run card, dismiss persists; e2e 8/8 |
+| Everyday: conversation export | ✅ JSON download from history; e2e 8/8 |
+| Everyday: reconnect/recovery | ✅ backoff poller (1s→10s cap, 8 attempts), auto-recovery without reload; 3 unit + e2e 2/2 |
+| Speech quality | ✅ fenced code never spoken, markdown markers stripped (commit `0453a14`), speech rate applied |
+| Desktop-control MCP | ⛔ blocked — GNOME Wayland 43.9 denies the exact primitives both candidates need (see FEATURE_AUDIT §7) |
+| Live Dahl replies | ⛔ key revoked — verified 401s; user must add a fresh key to `server/.env` (never in chat) |
+| Real-device testing | ⛔ no devices reachable from sandbox |
+
+## Session 2 verification (all commands run fresh this session)
+
+| Suite | Command | Result |
+|---|---|---|
+| Server tests | `cd server && npm test` | **45/45** |
+| Web units (vitest) | `cd web && npx vitest run` | **67/67, 9 files** |
+| Web typecheck | `npx tsc --noEmit` | clean |
+| Web production build | `npm run build` | exit 0 (25.18 kB JS, gzip 9.16 kB) |
+| Browser E2E — HUD/voice/history | `node web/e2e/verify-ui.mjs` | **9/9** |
+| Browser E2E — settings/onboarding/export | `node web/e2e/verify-settings.mjs` | **8/8** |
+| Browser E2E — auto-reconnect | `node web/e2e/verify-reconnect.mjs` | **2/2** (offline pill → auto-recovery, no reload) |
+| Live smoke | API + Vite up, honest 401 error path shown in browser | ✅ observed in e2e run |
+
+## Session 2 incidents (honest log)
+
+- Typecheck-vs-vitest gap: vitest does not typecheck — a duplicated line in `main.ts` and a `noUncheckedIndexedAccess` miss in a test shipped past a green 64/64 run; caught by `npm run build` (tsc). Both fixed; lesson: run tsc explicitly after wiring UI code, not just the suite.
+- Infinite loop in `spoken.ts` streaming filter (push ending mid-line never broke) — root-caused via per-file timeouts after a full-suite wedge; one-line `break;` fix with RED evidence.
+- Bash classifier outages recurred all night; worked read-only or with Write/Edit during gaps, retried after.
+
+## Still open (session 2 end)
+
+1. **Live Dahl replies** — key revoked; add fresh `DAHL_API_KEY` to `server/.env` (never paste in chat) and re-run `node web/e2e/verify-ui.mjs` (it auto-detects live mode).
+2. **Real-device testing** — no devices reachable from this sandbox.
+3. **Desktop-control MCP** — blocked at GNOME Wayland 43.9 (portal screenshot needs an interactive approval dialog the mission forbids auto-accepting); documented in FEATURE_AUDIT §7.
+4. **Hands-free full loop** (spoken reply → auto re-listen) needs a real mic + synth; unit-tested decision + persisted setting verified in browser only.
+5. **Long-term memory beyond conversations** — spec exists (`MEMORY_AND_PERSONALIZATION_SPEC.md`), unimplemented.
