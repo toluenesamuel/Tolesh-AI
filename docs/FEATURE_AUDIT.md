@@ -18,6 +18,7 @@ claimed without the run that proves it — see "Fresh verification evidence".
 | Web production build | `npm run build` | exit 0 (24.80 kB JS, gzip 9.03 kB) |
 | Browser E2E (HUD/voice/history) | `node web/e2e/verify-ui.mjs` | **9/9** (re-run this session) |
 | Browser E2E (settings/onboarding/export) | `node web/e2e/verify-settings.mjs` | **8/8 pass** (written + run this session) |
+| Browser E2E (auto-reconnect) | `node web/e2e/verify-reconnect.mjs` | **2/2 pass** (offline pill at boot, auto-recovery without reload) |
 
 ## 1. Core pipeline (highest-priority mission section)
 
@@ -74,7 +75,7 @@ claimed without the run that proves it — see "Fresh verification evidence".
 | Settings panel (voice toggle, rate, hands-free) persisted locally, storage-block safe | implemented+verified — 13/13 unit + e2e 8/8 (persistence across reload) |
 | First-run onboarding explainer | implemented+verified — e2e 8/8 (shows first run, dismissed, never re-shown) |
 | Conversation export (JSON download) | implemented+verified — e2e 8/8 (download parses, correct id/title/messages) |
-| Server reconnect/recovery UX (status pill already honest; auto-retry pending) | pending |
+| Server reconnect/recovery UX | implemented+verified | `web/src/reconnect.test.ts` 3/3 unit (backoff/give-up); `verify-reconnect.mjs` 2/2 real browser (offline pill → auto-recovery, no reload) |
 
 ## 6. Security posture
 
