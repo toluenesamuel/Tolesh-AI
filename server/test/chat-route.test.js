@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import cors from 'cors';
 import { createStore } from '../src/store.js';
-import { createChatRoute } from '../src/routes/chat.js';
+import { createChatRoute, createChatStreamRoute } from '../src/routes/chat.js';
 
 const originalFetch = globalThis.fetch;
 
@@ -18,11 +18,14 @@ function buildApp(providerImpl) {
   const resolveProvider = () => ({
     info: () => ({ id: 'stub', available: true }),
     chat: providerImpl.chat,
+    stream: providerImpl.stream,
   });
   const app = express();
   app.use(express.json());
   const chat = createChatRoute({ store, resolveProvider, buildModelMessages: (h) => h, rateLimit: 3 });
   app.post('/api/chat', chat.handler);
+  const chatStream = createChatStreamRoute({ store, resolveProvider, buildModelMessages: (h) => h, rateLimit: 3 });
+  app.post('/api/chat/stream', chatStream.handler);
   return { app, store };
 }
 
@@ -126,6 +129,75 @@ describe('POST /api/chat', () => {
       assert.equal(limited.status, 429);
       const body = await limited.json();
       assert.equal(body.error.kind, 'rate_limit');
+    });
+  });
+
+  test('stream: SSE with reasoning events then answer deltas → client sees answer only, cleaned text persisted', async () => {
+    // Provider that mimics DeepSeek: reasoning deltas, then answer deltas.
+    const provider = {
+      stream: async (req, onDelta) => {
+        onDelta('I ');
+        onDelta('dey!');
+        return { text: 'I dey!', hadReasoning: true, model: 'stub-stream', finishReason: 'stop' };
+      },
+    };
+    const { app, store } = buildApp(provider);
+    await withServer(app, async (base) => {
+      const conv = store.createConversation();
+      const res = await fetch(`${base}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: conv.id, message: 'you dey?' }),
+      });
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get('content-type') ?? '', /text\/event-stream/);
+      const body = await res.text();
+      // The user-facing stream must never contain reasoning text…
+      assert.ok(!body.includes('reasoning'));
+      // …and must carry answer deltas as SSE events.
+      assert.match(body, /data: \{"delta":"I "\}/);
+      assert.match(body, /data: \{"delta":"dey!"\}/);
+      assert.match(body, /event: done/);
+      const got = store.getConversation(conv.id);
+      assert.equal(got.messages.length, 2);
+      assert.equal(got.messages[1].role, 'assistant');
+      assert.equal(got.messages[1].content, 'I dey!');
+    });
+  });
+
+  test('stream: provider reasoning-only failure → SSE error event, honest kind', async () => {
+    const err = new Error('The model reasoned but returned no answer.');
+    err.name = 'ProviderError';
+    err.kind = 'provider';
+    const { app, store } = buildApp({
+      stream: async () => {
+        throw err;
+      },
+    });
+    await withServer(app, async (base) => {
+      const conv = store.createConversation();
+      const res = await fetch(`${base}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: conv.id, message: 'hi' }),
+      });
+      assert.equal(res.status, 502);
+      const body = await res.json();
+      assert.equal(body.error.kind, 'provider');
+    });
+  });
+
+  test('stream: validation and rate limit still apply', async () => {
+    const provider = { stream: async () => ({ text: 'x', hadReasoning: false, model: 's' }) };
+    const { app, store } = buildApp(provider);
+    await withServer(app, async (base) => {
+      const conv = store.createConversation();
+      const bad = await fetch(`${base}/api/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'no id' }),
+      });
+      assert.equal(bad.status, 400);
     });
   });
 });

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
 import { resolveProvider, providers, ProviderError } from './providers.js';
 import { buildModelMessages } from './persona.js';
-import { createChatRoute, providerErrorResponse } from './routes/chat.js';
+import { createChatRoute, createChatStreamRoute, providerErrorResponse } from './routes/chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
@@ -72,6 +72,8 @@ app.delete('/api/conversations/:id', (req, res) => {
 // --- Chat -------------------------------------------------------------------
 const chat = createChatRoute({ store, resolveProvider, buildModelMessages });
 app.post('/api/chat', chat.handler);
+const chatStream = createChatStreamRoute({ store, resolveProvider, buildModelMessages });
+app.post('/api/chat/stream', chatStream.handler);
 
 // --- Errors ---------------------------------------------------------------
 app.use((err, _req, res, _next) => {
