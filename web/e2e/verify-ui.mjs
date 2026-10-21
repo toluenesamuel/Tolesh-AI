@@ -81,7 +81,8 @@ try {
     { timeout: 30000 }
   );
   const lastMsg = await page.textContent('.transcript .msg.assistant:last-child .body');
-  const errorBubble = /⚠️/.test(lastMsg ?? '');
+  // Error bubbles are identified by their class (the warning mark is a vector icon, not text).
+  const errorBubble = (await page.locator('.transcript .msg.assistant:last-child.error-msg').count()) > 0;
   if (errorBubble) {
     // Key missing OR rejected — the transcript must carry the honest message.
     check('honest provider error shown for chat', /provider key|API key/i.test(lastMsg ?? ''), lastMsg ?? '');

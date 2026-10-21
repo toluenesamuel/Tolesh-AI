@@ -33,7 +33,7 @@ export type SpeechQueue = {
 };
 
 export type SpeechQueueOptions = {
-  /** The first utterance actually started (HUD → speaking state). */
+  /** An utterance reports it has started playing (HUD → speaking state). */
   onSpeakStart?: () => void;
   /** 0..1 speech-progress pulse from utterance boundary events. */
   onLevel?: (level: number) => void;
@@ -89,7 +89,6 @@ export function createSpeechQueue(
     }
     const text = pending.shift()!;
     speaking = true;
-    opts.onSpeakStart?.();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = navigator.language || 'en-NG';
     utter.rate = opts.rate ?? 1.02;
@@ -124,6 +123,11 @@ export function createSpeechQueue(
     };
     utter.onend = settle;
     utter.onerror = settle;
+    // Speaking starts when the engine reports audio has begun, not when speak()
+    // is called, so the HUD never shows "speaking" for speech that isn't playing.
+    utter.onstart = () => {
+      if (!settled && !done) opts.onSpeakStart?.();
+    };
     timer = timers.set(() => {
       if (settled) return;
       settled = true;

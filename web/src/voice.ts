@@ -1,5 +1,7 @@
 /**
- * Voice module — Web Speech API (browser-native, no keys, no cloud).
+ * Voice module — Web Speech API. No Tolesh keys, and Tolesh does not send audio
+ * anywhere itself. Recognition is provided by the browser, and in Chromium the
+ * audio may be processed by the browser vendor's speech service.
  *
  * Platform reality (documented honestly in the UI):
  * - SpeechRecognition: Chromium/Edge only (webkitSpeechRecognition). Firefox/Safari: absent.

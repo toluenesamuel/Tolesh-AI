@@ -96,6 +96,8 @@ try {
     return (await res.json()).conversation.id;
   });
   await page.reload({ waitUntil: 'networkidle' });
+  // History is a drawer below 1024px. Open it through its toggle first; the list is hidden until then.
+  await page.locator('#history-toggle').click();
   const row = page.locator('.history-item', { hasText: 'Export check' });
   await row.waitFor({ state: 'visible', timeout: 5000 });
   const [download] = await Promise.all([page.waitForEvent('download'), row.locator('.history-export').click()]);
