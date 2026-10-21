@@ -9,6 +9,7 @@ import { Voice, voiceSupport } from './voice';
 import { createSpeechQueue } from './speech-queue';
 import { api } from './api';
 import { loadSettings, saveSettings, shouldResumeListening, type ToleshSettings } from './settings';
+import { reconnectDelayMs } from './reconnect';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -569,6 +570,32 @@ async function boot() {
     setStatus('err', 'server offline');
     addMessage('assistant', '⚠️ Cannot reach the Tolesh server. Start it with: cd server && npm start', 'error-msg');
     setPhase('error');
+    void reconnectPoller();
+  }
+}
+
+/**
+ * After a failed boot, retry the health check with backoff (reconnect.ts).
+ * On recovery the pill flips to the provider state and history reloads —
+ * the user does not have to know about refreshing. Gives up honestly after
+ * MAX_RECONNECT_ATTEMPTS and leaves the offline pill up.
+ */
+async function reconnectPoller() {
+  for (let attempt = 1; ; attempt++) {
+    const delay = reconnectDelayMs(attempt);
+    if (delay === null) return; // stays offline; refresh retries manually
+    await new Promise((r) => setTimeout(r, delay));
+    try {
+      const { providers, active } = await api.providers();
+      const current = providers.find((p) => p.id === active);
+      if (current?.available) setStatus('ok', `${current.label} connected`);
+      else setStatus('warn', 'no AI provider key');
+      void refreshHistory();
+      if (phase === 'error') setPhase('idle');
+      return;
+    } catch {
+      // still down — next attempt after the computed delay
+    }
   }
 }
 
