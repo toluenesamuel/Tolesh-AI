@@ -189,6 +189,7 @@ html, body {
   place-items: center;
   min-height: 0;
   position: relative;
+  padding-bottom: 14px; /* keep the state label clear of the transcript */
 }
 .orb-wrap {
   position: relative;
@@ -216,6 +217,7 @@ html, body {
   padding: 4px 14px;
   border-radius: 999px;
   white-space: nowrap;
+  z-index: 2; /* stay above transcript bubbles that scroll under it */
 }
 
 /* ---------- transcript / history ---------- */
@@ -224,6 +226,7 @@ html, body {
   min-height: 120px;
   max-height: 34dvh;
   padding: 8px 4px;
+  margin-top: 12px; /* keep first bubble clear of the HUD state label */
   display: flex;
   flex-direction: column;
   gap: 10px;

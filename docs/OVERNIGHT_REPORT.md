@@ -111,6 +111,12 @@ Also added in this round (file-complete, pending verification):
 | Live server smoke (verify.sh) | ✅ **5/5** |
 | Web typecheck (tsc --noEmit) | ✅ clean |
 | Web production build | ✅ (15.74 kB JS / 5.97 kB CSS gzip) |
-| Browser/E2E HUD check | **not run** (no browser automation installed) |
+| Browser/E2E HUD check | ✅ **9/9 pass** (`node web/e2e/verify-ui.mjs`, playwright-core + system Chrome; post-mission follow-up, see below) |
 | Real device (Android/Windows) | **not possible** in this sandbox |
 | Live Dahl model call | **blocked — no key** |
+
+### Post-mission follow-up (2026-10-18, after system restart) — browser E2E executed ✅
+- Installed `playwright-core` (web devDependency, drives system Chrome — no browser download) and added `web/e2e/verify-ui.mjs`: boots both servers, then checks in a real browser — boot status pill, HUD canvas render, idle state label, text chat → honest `no_key` error as last transcript bubble, history list/open/delete, New-chat reset, no unexpected console errors.
+- Running it surfaced 3 real UI bugs, fixed in `web/src/styles.css`: transcript bubbles scrolled under the state label (now `z-index: 2` + HUD `padding-bottom: 14px`) and the first bubble sat under it (`.transcript { margin-top: 12px }`).
+- Result: **9/9 checks pass** against the live servers; `scripts/verify.sh` re-run after the CSS fixes — all phases green.
+- Still open: real-device testing, live Dahl call (key), server-side ASR/TTS decision.
