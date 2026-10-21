@@ -18,8 +18,8 @@ const check = (name, ok, detail = '') => {
 };
 
 const browser = await chromium.launch({
-  executablePath: '/usr/bin/google-chrome',
-  args: ['--no-sandbox', '--disable-gpu'],
+  executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome',
+  args: (process.env.CHROME_ARGS ?? '--no-sandbox --disable-gpu').split(' ').filter(Boolean),
 });
 try {
   const page = await browser.newPage({ viewport: { width: 800, height: 700 } });
@@ -89,7 +89,8 @@ try {
     const clean = !/<think|chain of thought|reasoning:/i.test(lastMsg ?? '');
     check('live: streamed answer visible', (lastMsg ?? '').trim().length > 0, lastMsg?.slice(0, 80));
     check('live: no reasoning markers in answer', clean, lastMsg?.slice(0, 80));
-    check('live: returned to idle after speech', true);
+    const finalState = await page.textContent('#state-label');
+  check('live: returned to idle after speech', finalState === 'idle', `state=\"${finalState}\"`);
   }
 
   // 5. History panel lists conversations
@@ -100,20 +101,19 @@ try {
 
   // 6. Open the first conversation — its (persisted) message appears
   await page.click('.history-item .history-open');
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('.msg')].some((m) => m.textContent?.includes('2+2'))
-  );
-  check('open conversation loads persisted messages', true);
+  const opened = await page
+    .waitForFunction(() => [...document.querySelectorAll('.msg')].some((m) => m.textContent?.includes('2+2')), { timeout: 10000 })
+    .then(() => true, () => false);
+  check('open conversation loads persisted messages', opened);
 
   // 7. Delete flow: arm, then confirm; list shrinks
   const before = await page.locator('.history-item').count();
   await page.click('.history-item .history-delete'); // arm
   await page.click('.history-item .history-delete'); // confirm
-  await page.waitForFunction(
-    (n) => document.querySelectorAll('.history-item').length < n,
-    before
-  );
-  check('delete removes conversation from history', true);
+  const deleted = await page
+    .waitForFunction((n) => document.querySelectorAll('.history-item').length < n, before, { timeout: 10000 })
+    .then(() => true, () => false);
+  check('delete removes conversation from history', deleted, `before=${before}`);
 
   // 8. New chat clears transcript
   await page.click('#new-chat');

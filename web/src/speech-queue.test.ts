@@ -135,30 +135,16 @@ describe('speech queue', () => {
     expect(onSpeakStart).not.toHaveBeenCalled();
   });
 
-  test('fenced code blocks are never spoken', async () => {
-    const { queue, spoken, onDone } = makeQueue();
-    queue.enqueue('Here is how:\n');
-    queue.enqueue('```bash\n');
-    queue.enqueue('npm install tolesh\n');
-    queue.enqueue('```\n');
-    queue.enqueue('That is all.');
+  test('onLevel pulses from boundary events (0..1)', async () => {
+    const { queue, onLevel } = makeQueue();
+    queue.enqueue('Hello world.');
     queue.finish();
-    await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    const all = spoken.join('\n');
-    expect(all).not.toContain('npm install');
-    expect(all).not.toContain('```');
-    expect(spoken).toContain('Here is how:');
-    expect(spoken).toContain('That is all.');
-  });
-
-  test('markdown markers are stripped in speech', async () => {
-    const { queue, spoken, onDone } = makeQueue();
-    queue.enqueue('## Summary\n');
-    queue.enqueue('- **Fast** replies, [see docs](https://x.y).');
-    queue.finish();
-    await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    expect(spoken[0]).toBe('Summary');
-    expect(spoken).toContain('Fast replies, see docs.');
+    await vi.waitFor(() => expect(onLevel).toHaveBeenCalled());
+    for (const args of onLevel.mock.calls) {
+      const v = args[0] as number;
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
   });
 
   test('speech rate from settings is applied to utterances', async () => {

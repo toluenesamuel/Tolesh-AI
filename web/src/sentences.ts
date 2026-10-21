@@ -57,7 +57,11 @@ export function takeSentences(buf: string, final = false): { sentences: string[]
       const word = buf.slice(wStart, i).toLowerCase();
       const isAbbrev = j - i === 1 && ABBREVIATIONS.has(word.replace(/\./g, ''));
 
-      if (isAbbrev) {
+      // A numbered-list marker that opens a sentence ("1. Do this", or "... Done. 2. Next")
+      // is not a sentence end. Digits mid-sentence ("I have 3. Next") still split.
+      const isListMarker = j - i === 1 && /^\d{1,3}$/.test(word) && wStart === start;
+
+      if (isAbbrev || isListMarker) {
         i = j;
         continue;
       }

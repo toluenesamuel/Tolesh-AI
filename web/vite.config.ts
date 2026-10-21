@@ -7,7 +7,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8787',
+        // Override with TOLESH_API for tests that run the server on another port.
+        target: process.env.TOLESH_API ?? 'http://127.0.0.1:8787',
         changeOrigin: true,
       },
     },

@@ -63,10 +63,31 @@ describe('api.chatStream', () => {
     expect(onDelta).toHaveBeenCalledWith('partial');
   });
 
-  test('deltas received without a done event still resolve with accumulated text', async () => {
+  test('deltas without a done event are NOT a finished answer (interrupted stream rejects)', async () => {
     globalThis.fetch = vi.fn(async () => sseResponse(['data: {"delta":"x"}\n\n']));
+    const seen: string[] = [];
+    await expect(api.chatStream('c1', 'hi', { onDelta: (d) => seen.push(d) })).rejects.toMatchObject({
+      kind: 'provider',
+    });
+    // Text that did arrive was still shown, so the user sees what was cut off.
+    expect(seen).toEqual(['x']);
+  });
+
+  test('done event carries the truncated flag from the server', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      sseResponse(['data: {"delta":"Half"}\n\n', 'event: done\ndata: {"conversationId":"c1","truncated":true}\n\n'])
+    );
     const result = await api.chatStream('c1', 'hi', {});
-    expect(result.reply).toBe('x');
+    expect(result.reply).toBe('Half');
+    expect(result.truncated).toBe(true);
+  });
+
+  test('done event without the flag is not truncated', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      sseResponse(['data: {"delta":"Full"}\n\n', 'event: done\ndata: {"conversationId":"c1"}\n\n'])
+    );
+    const result = await api.chatStream('c1', 'hi', {});
+    expect(result.truncated).toBe(false);
   });
 
   test('network failure maps to network ApiError', async () => {

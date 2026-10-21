@@ -107,7 +107,7 @@ export const api = {
     conversationId: string,
     message: string,
     opts: { onDelta?: (delta: string) => void; signal?: AbortSignal } = {}
-  ): Promise<{ reply: string; model: string | null; conversationId: string }> => {
+  ): Promise<{ reply: string; model: string | null; conversationId: string; truncated: boolean }> => {
     let res: Response;
     try {
       res = await fetch(`${BASE}/api/chat/stream`, {
@@ -143,13 +143,17 @@ export const api = {
     let model: string | null = null;
     let conversationIdOut = conversationId;
     let streamError: ApiError | null = null;
+    let sawDone = false;
+    let truncated = false;
     await readSse(res, (name, data) => {
       if (name === 'message' && typeof (data as { delta?: unknown })?.delta === 'string') {
         const delta = (data as { delta: string }).delta;
         reply += delta;
         opts.onDelta?.(delta);
       } else if (name === 'done' && typeof data === 'object' && data !== null) {
-        const d = data as { conversationId?: string; model?: string | null };
+        const d = data as { conversationId?: string; model?: string | null; truncated?: boolean };
+        sawDone = true;
+        truncated = d.truncated === true;
         if (typeof d.conversationId === 'string') conversationIdOut = d.conversationId;
         if (typeof d.model === 'string') model = d.model;
       } else if (name === 'error' && typeof data === 'object' && data !== null) {
@@ -164,6 +168,11 @@ export const api = {
       // Non-JSON or unknown event payloads are ignored (garbage filtering).
     });
     if (streamError) throw streamError;
-    return { reply, model, conversationId: conversationIdOut };
+    // The server sends `done` only after the reply is saved. Without it the
+    // text may be cut off, so never present it as a finished answer.
+    if (!sawDone) {
+      throw new ApiError('provider', 'The reply was interrupted before it finished. Try again.', 200);
+    }
+    return { reply, model, conversationId: conversationIdOut, truncated };
   },
 };

@@ -7,6 +7,14 @@
  */
 import { chromium } from 'playwright-core';
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Paths are relative to this file, never to a fixed machine path.
+const SERVER_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../server');
+const TMP = mkdtempSync(path.join(os.tmpdir(), 'tolesh-reconnect-'));
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -15,8 +23,8 @@ const check = (name, ok, detail = '') => {
 };
 
 const browser = await chromium.launch({
-  executablePath: '/usr/bin/google-chrome',
-  args: ['--no-sandbox', '--disable-gpu'],
+  executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome',
+  args: (process.env.CHROME_ARGS ?? '--no-sandbox --disable-gpu').split(' ').filter(Boolean),
 });
 try {
   const page = await browser.newPage({ viewport: { width: 800, height: 700 } });
@@ -27,7 +35,12 @@ try {
   check('boot with API down shows offline pill', pillDown === 'server offline', `pill="${pillDown}"`);
 
   // Bring the API up mid-poll — recovery must happen without a reload.
-  const api = spawn('node', ['src/index.js'], { cwd: '/home/bola/Tolesh-AI/server', detached: true, stdio: 'ignore' });
+  // The API is started here with a temp database, and stopped in finally.
+  const api = spawn('node', ['src/index.js'], {
+    cwd: SERVER_DIR,
+    env: { ...process.env, DB_PATH: path.join(TMP, 'reconnect.db') },
+    stdio: 'ignore',
+  });
   try {
     const recovered = await page
       .waitForFunction(
@@ -42,11 +55,11 @@ try {
     const pillUp = (await page.locator('#status-text').textContent()) ?? '';
     check('pill recovers automatically after API restart (no reload)', recovered, `pill="${pillUp}"`);
   } finally {
-    // leave the API running for subsequent suites; detach via spawned process
+    api.kill('SIGTERM');
   }
-  // Detached API keeps running after this script exits (spawn detached + stdio ignore).
 } finally {
   await browser.close();
+  rmSync(TMP, { recursive: true, force: true });
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

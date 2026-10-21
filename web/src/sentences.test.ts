@@ -68,3 +68,20 @@ describe('takeSentences', () => {
     expect(rest).toBe('');
   });
 });
+
+describe('numbered list markers', () => {
+  test('a list marker at the start is not a sentence end', () => {
+    const r = takeSentences('1. Open the app.', true);
+    expect(r.sentences).toEqual(['1. Open the app.']);
+  });
+
+  test('list markers after a finished sentence stay attached to their item', () => {
+    const r = takeSentences('Here are the steps. 2. Then restart it. ', true);
+    expect(r.sentences).toEqual(['Here are the steps.', '2. Then restart it.']);
+  });
+
+  test('a digit mid-sentence still splits', () => {
+    const r = takeSentences('I have 3. Next thing. ', true);
+    expect(r.sentences).toEqual(['I have 3.', 'Next thing.']);
+  });
+});

@@ -477,7 +477,7 @@ async function submit(text: string) {
   const queue = speechSynthAvailable && settings.speechEnabled ? startSpeechQueue() : null;
   try {
     const cid = await ensureConversation();
-    const { reply, model } = await api.chatStream(cid, message, {
+    const { reply, model, truncated } = await api.chatStream(cid, message, {
       signal: abortChat.signal,
       onDelta: (delta) => {
         if (!bubble || !bubbleBody) {
@@ -491,6 +491,11 @@ async function submit(text: string) {
       },
     });
     void refreshHistory();
+    if (truncated) {
+      // The model stopped at its output limit. Say so; the cut-off text is in
+      // history, so asking Tolesh to continue works.
+      addMessage('assistant', '⚠️ That reply was cut off before it finished. Ask Tolesh to continue.', 'error-msg');
+    }
     queue?.finish();
     if (!queue) {
       // Speech disabled or unsupported — the streamed bubble is the answer.
