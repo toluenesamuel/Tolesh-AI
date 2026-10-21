@@ -12,10 +12,13 @@
  *
  * enqueue() receives stream DELTAS; the unfinished sentence fragment is
  * retained between calls, so decimals ("3." + "5") and abbreviations that
- * span deltas still split correctly. The synth handle is injected for tests.
+ * span deltas still split correctly. Before speech, fenced code blocks are
+ * dropped and inline markdown markers stripped (spoken.ts) — the transcript
+ * bubble keeps the raw markdown. The synth handle is injected for tests.
  */
 
 import { takeSentences } from './sentences';
+import { cleanSpokenText, createSpokenFilter } from './spoken';
 
 export type SpeechQueue = {
   /** Feed the next stream delta (verbatim answer text). */
@@ -39,8 +42,15 @@ export function createSpeechQueue(
   synth: Pick<SpeechSynthesis, 'speak' | 'cancel' | 'speaking'>,
   opts: SpeechQueueOptions = {}
 ): SpeechQueue {
+  const spoken = createSpokenFilter(); // streaming fence skipper
   const pending: string[] = [];
   let fragment = ''; // sentence still growing across deltas
+
+  // A sentence that cleans down to nothing (stray markers) is not speech.
+  const pushSpoken = (sentence: string) => {
+    const clean = cleanSpokenText(sentence);
+    if (clean) pending.push(clean);
+  };
   let speaking = false;
   let finished = false; // finish() was called
   let done = false; // terminal: cancelled or fully drained
@@ -86,16 +96,17 @@ export function createSpeechQueue(
   return {
     enqueue(delta: string) {
       if (done || !delta) return;
-      fragment += delta;
+      fragment += spoken.push(delta); // fenced code dropped here
       const { sentences, rest } = takeSentences(fragment, false);
-      for (const s of sentences) pending.push(s);
+      for (const s of sentences) pushSpoken(s);
       fragment = rest;
       if (!speaking) startNext();
     },
     finish() {
       if (done) return;
       finished = true;
-      for (const s of takeSentences(fragment, true).sentences) pending.push(s);
+      fragment += spoken.end(); // flush any held-back fence prefix
+      for (const s of takeSentences(fragment, true).sentences) pushSpoken(s);
       fragment = '';
       if (!speaking) startNext(); // drains or fires onDone
     },
