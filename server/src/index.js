@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
 import { resolveProvider, providers, ProviderError } from './providers.js';
 import { buildModelMessages } from './persona.js';
+import { wireClientAbort } from './request-abort.js';
 import { createChatRoute, createChatStreamRoute, providerErrorResponse } from './routes/chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,8 @@ app.use(
     origin: (origin, cb) => cb(null, !origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)),
   })
 );
+// Client disconnects abort in-flight provider calls (req.abortSignal).
+app.use(wireClientAbort());
 
 // --- Health & capability ---
 app.get('/api/health', (_req, res) => {
