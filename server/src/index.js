@@ -5,6 +5,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { accessGate, originAllowed, parseAllowedOrigins } from './access.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
@@ -24,11 +25,14 @@ const store = createStore(process.env.DB_PATH ?? path.join(__dirname, '..', 'dat
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '256kb' }));
+const EXTRA_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 app.use(
   cors({
-    origin: (origin, cb) => cb(null, !origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)),
+    origin: (origin, cb) => cb(null, originAllowed(origin, EXTRA_ORIGINS)),
   })
 );
+// Hosted deployments set TOLESH_ACCESS_TOKEN; local development leaves it unset.
+app.use(accessGate(process.env.TOLESH_ACCESS_TOKEN));
 // Client disconnects abort in-flight provider calls (req.abortSignal).
 app.use(wireClientAbort());
 
