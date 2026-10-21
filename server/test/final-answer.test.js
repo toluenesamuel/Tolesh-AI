@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractFinalAnswer, createThinkFilter } from '../src/final-answer.js';
+import { extractFinalAnswer, createThinkFilter, stripThink } from '../src/final-answer.js';
 
 const OPEN = '<' + 'think' + '>';
 const CLOSE = '</' + 'think' + '>';
@@ -147,4 +147,50 @@ test('filter tracks hadReasoning across channels and tags', () => {
   const h = createThinkFilter();
   h.delta({ content: OPEN + 'reasoning' + CLOSE + 'answer' });
   assert.equal(h.hadReasoning, true);
+});
+
+/** Stream text through the filter, split at the given positions, and return the answer. */
+function streamAnswer(text, splits) {
+  const f = createThinkFilter();
+  let out = '';
+  let prev = 0;
+  for (const s of [...splits, text.length]) {
+    out += f.push(text.slice(prev, s));
+    prev = s;
+  }
+  return out + f.flush();
+}
+
+test('streamed answer equals whole-reply answer for a trailing "<" or partial tag', () => {
+  // A literal "<" that never completes into a tag must appear, as in the whole-reply path.
+  const cases = ['Price is <', 'x <thi', 'ok <', 'a <think foo', 'use a < b'];
+  for (const c of cases) {
+    const whole = stripThink(c).text;
+    assert.equal(whole, c, `whole-reply keeps ${JSON.stringify(c)}`);
+    // Every single split point, and the all-chars split.
+    for (let i = 0; i <= c.length; i++) {
+      assert.equal(streamAnswer(c, [i]), whole, `split ${i} of ${JSON.stringify(c)}`);
+    }
+    assert.equal(streamAnswer(c, [...c.slice(0, -1)].map((_, i) => i + 1)), whole);
+  }
+});
+
+test('streamed reasoning residue is still dropped at flush (unclosed reasoning)', () => {
+  // An unclosed reasoning block swallows the rest, in both paths.
+  const text = 'Answer. ' + OPEN + 'still thinking <';
+  assert.equal(stripThink(text).text, 'Answer. ');
+  for (let i = 0; i <= text.length; i++) {
+    assert.equal(streamAnswer(text, [i]), 'Answer. ', `split ${i}`);
+  }
+});
+
+test('streamed and whole-reply answers agree over many chunkings of a mixed reply', () => {
+  const text = 'Use a < b, then ' + OPEN + 'plan' + CLOSE + 'done. Tag <x> is literal, end <';
+  const whole = stripThink(text).text;
+  assert.equal(whole, 'Use a < b, then done. Tag <x> is literal, end <');
+  for (let i = 0; i <= text.length; i++) {
+    for (let j = i; j <= text.length; j += 7) {
+      assert.equal(streamAnswer(text, [i, j]), whole, `splits ${i},${j}`);
+    }
+  }
 });

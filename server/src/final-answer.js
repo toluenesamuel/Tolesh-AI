@@ -191,13 +191,17 @@ export function createThinkFilter() {
       return push(d.content);
     },
     /**
-     * End of stream: anything still held is either in-think residue or a
-     * dangling partial tag — both are dropped, matching the non-streaming
-     * rule that an unclosed tag swallows what follows it.
+     * End of stream. Held text means different things by state:
+     * - inside reasoning: it is reasoning residue (or a partial close tag) — dropped;
+     * - outside reasoning: it is a literal '<' or partial tag text that never
+     *   completed, e.g. "Price is <". The whole-reply rule (stripThink) keeps it,
+     *   so the stream must release it too, or the two paths disagree.
+     * @returns {string} text to append to the answer
      */
     flush() {
+      const tail = inThink ? '' : pending;
       pending = '';
-      return '';
+      return tail;
     },
   };
 }

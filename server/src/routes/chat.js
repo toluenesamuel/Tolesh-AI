@@ -78,7 +78,7 @@ export function createChatRoute({ store, resolveProvider, buildModelMessages, ra
         signal: req.abortSignal,
       });
       store.addMessage(conversationId, 'assistant', result.text);
-      res.json({ reply: result.text, model: result.model, conversationId });
+      res.json({ reply: result.text, model: result.model, conversationId, truncated: result.truncated === true });
     } catch (err) {
       if (err instanceof Error && err.name === 'ProviderError') {
         const kind = /** @type {any} */ (err).kind;
@@ -120,7 +120,7 @@ function statusForKind(kind) {
  *
  * SSE events:
  *   data: {"delta":"…"}      one or more times — answer text only
- *   event: done\ndata: {...}  final: {conversationId, model}
+ *   event: done\ndata: {...}  final: {conversationId, model, truncated}
  *   event: error\ndata: {"error":{kind,message}} — mid-stream failures
  *
  * @param {{store: any, resolveProvider: Function, buildModelMessages: Function, rateLimit?: number}} deps
@@ -190,7 +190,7 @@ export function createChatStreamRoute({ store, resolveProvider, buildModelMessag
         }
       );
       store.addMessage(conversationId, 'assistant', result.text);
-      send('done', { conversationId, model: result.model ?? null });
+      send('done', { conversationId, model: result.model ?? null, truncated: result.truncated === true });
       res.end();
     } catch (err) {
       if (err instanceof Error && err.name === 'ProviderError') {
@@ -208,7 +208,22 @@ export function createChatStreamRoute({ store, resolveProvider, buildModelMessag
         }
         return;
       }
-      throw err;
+      // Not a ProviderError (e.g. the upstream socket dropped mid-read). The stream
+      // may already be open, so the browser must still get a terminal event. Without
+      // one the page waits forever. Log only the error name server-side.
+      console.error('[tolesh] stream failed:', err?.name ?? 'Error');
+      if (!streaming) {
+        if (!res.headersSent) {
+          res.status(502).json({ error: { kind: 'provider', message: 'The assistant stream failed. Try again.', retryAfterMs: null } });
+        }
+        return;
+      }
+      if (!res.writableEnded && !req.abortSignal?.aborted) {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ error: { kind: 'provider', message: 'The reply was interrupted before it finished. Try again.', retryAfterMs: null } })}\n\n`
+        );
+        res.end();
+      }
     }
   }
 

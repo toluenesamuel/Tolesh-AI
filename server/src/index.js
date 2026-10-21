@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './store.js';
 import { resolveProvider, providers, ProviderError } from './providers.js';
-import { buildModelMessages } from './persona.js';
+import { buildModelMessages, replyLanguageMode } from './persona.js';
 import { wireClientAbort } from './request-abort.js';
 import { createChatRoute, createChatStreamRoute, providerErrorResponse } from './routes/chat.js';
 
@@ -41,6 +41,7 @@ app.get('/api/providers', (_req, res) => {
   res.json({
     providers: providers.map((p) => p.info()),
     active: resolveProvider().info().id,
+    replyLanguageMode: replyLanguageMode(),
   });
 });
 
@@ -96,7 +97,14 @@ const server = app.listen(PORT, HOST, () => {
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : PORT;
   console.log(`[tolesh] server listening on http://localhost:${port}`);
-  console.log(`[tolesh] provider: ${resolveProvider().info().id} (available: ${resolveProvider().info().available})`);
+  const active = resolveProvider().info();
+  console.log(`[tolesh] provider: ${active.id} (available: ${active.available})`);
+  if (active.available && !active.modelPinned) {
+    // Without a pin the gateway chooses the model. The 2026-10-18 evidence showed
+    // that default can emit reasoning inline, so say so at startup.
+    console.warn(`[tolesh] warning: ${active.id} model is not pinned. Set DAHL_MODEL in server/.env.`);
+  }
+  console.log(`[tolesh] reply language mode: ${replyLanguageMode()}`);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
