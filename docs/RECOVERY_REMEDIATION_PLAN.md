@@ -12,7 +12,7 @@ Date: 2026-10-21. Branch: `arena/fae714f3-tolesh-ai`.
 | Remote GenSpark branch | `b5f5e71`; full history fetched (the clone had been shallow) | `git fetch --unshallow` (read only) |
 | Request P commits (`601d55d`…`5273733`) | **Not in this `.git`.** They were lost when the clone was re-created. Their content survives only in the working tree. | `git cat-file -t` returns missing |
 | Working tree vs `f7af520` | 92 added paths, 3 modified (`.gitignore`, `CLAUDE.md`, `docs/PLANNING_PROVENANCE.md`) | `/tmp/phase1-vs-f7af.txt` |
-| Working-tree tree object | `9d0bd466233af4f46819a9343dea2d60e42ef379` (excludes the 2 untracked PNGs, see §3) | `git write-tree` on a temporary index |
+| Working-tree tree object | `9d0bd466233af4f46819a9343dea2d60e42ef379` (**includes** the 2 untracked PNGs; excludes the plan file, which was written later). The payload without the PNGs and plan file is `0defc861fb0d4b962275783da6af6f2e99f05b79`. | `git write-tree` on a temporary index |
 | Backup | `/home/user/Tolesh-AI-backup-phase1-20261021-114847/Tolesh-AI-full.tar` (35 MB) | restore not yet tested |
 
 Content check: 25 of 29 blob IDs recorded in `docs/PLANNING_PROVENANCE.md` match the files on disk exactly. The 4 non-matches are explained: `docs/FEATURE_AUDIT.md` and `docs/OVERNIGHT_REPORT.md` were edited after the table was written, and the `spec-miner` entry is a symlink. **So the content survived. The commit history did not.** Git cannot confirm the original commits any more; the evidence is the provenance document and the blob comparison.
@@ -76,3 +76,72 @@ Not run: live provider evaluation (no provider key in this sandbox, so **BLOCKED
 2. The 7 governance files: keep Arena (recommend) or take GenSpark per file.
 3. Vercel: approve creating a `tolesh-ai` project for a *frontend-only* preview, or wait until the backend has authentication and a host.
 4. Do not push or deploy until these are answered.
+
+## 9. Option A execution record (local only, 2026-10-21)
+
+Status: **executed locally. Not pushed. Not deployed.** Branch `arena/fae714f3-tolesh-ai`
+moved from `c5e83ca` to `953f5b1` (fast-forward, `update-ref` with the old value checked).
+`c5e83ca` is an ancestor, so nothing was dropped. The old tip `f7af520` is unchanged on origin.
+
+### Environment changes found before starting (recorded, not hidden)
+- The sandbox was re-created at 12:27. The clone was again shallow at `b5f5e71`, and `origin/arena` was not fetched.
+- The §1 backup (`Tolesh-AI-backup-phase1-20261021-114847`) and the `/tmp` evidence files were **gone**.
+  The working tree was the only copy, so a fresh backup was taken first:
+  `/home/user/Tolesh-AI-backup-phase2-20261021T122747Z/Tolesh-AI-full.tar` (SHA-256 in `SHA256SUMS.txt`).
+  A restore check showed it identical to the working tree. Refs before the rebuild are in `refs-before-rebuild.txt`.
+- Read-only fetches restored `origin/arena` (`f7af520`) and the full GenSpark history (`f0e3d8a`).
+- The working tree content matched the recorded state exactly (tree `9d0bd46…` once the plan file is excluded).
+
+### Commit sequence (`f7af520` → `953f5b1`, 22 commits)
+
+| # | Commit | Source | Content |
+|---|---|---|---|
+| A1 | `a60c476` | GenSpark `469ba8a` | path copy, 4 paths; 7 governance paths skipped (Arena kept) |
+| A2 | `2ba760c` | `f17f4ff` | path copy, 30 paths; `AGENTS.md` skipped |
+| A3 | `e04dd43` | `a714d60` | **no payload change** (its only change was to `AGENTS.md`, skipped). Kept so the source stays visible |
+| A4 | `2c0b5e7` | `4e15650` | 28 paths |
+| A5 | `475e707` | `ec8f945` | 1 path |
+| A6 | `2375c94` | `e39f995` | 5 paths |
+| A7 | `a572005` | `81fa7bd` | 7 paths |
+| A8 | `110100a` | `e62f3e3` | 11 paths |
+| A9 | `c58c1e0` | `f0e3d8a` | 1 path (end of Port A) |
+| B1 | `4c6fe88` | `4d5a1ce` | 3 paths |
+| B2 | `e3da5ce` | `0453a14` | 2 paths; `spoken.ts` and `spoken.test.ts` **not ported** (documented decision) |
+| B3 | `5efdb38` | `7596f5d` | 7 paths |
+| B4 | `44a1c1b` | `e37be3d` | 1 path |
+| B5 | `ba6afb9` | `14df0ff` | 4 paths |
+| B6 | `a380a46` | `240c60e` | 7 paths |
+| B7 | `2719eb0` | `74112e8` | 1 path |
+| B8 | `50b2fb5` | `b5f5e71` | 2 paths (end of Port B) |
+| R1 | `77a84a7` | Arena | server residual, 13 paths |
+| R2 | `2ec87d7` | Arena | web residual, 17 paths |
+| R3 | `fe737a0` | Arena | scripts and repo config, 2 paths |
+| R4 | `3f9134c` | Arena | skills and docs, 10 paths (42 residual paths in total) |
+| P | `953f5b1` | Arena | `docs/RECOVERY_REMEDIATION_PLAN.md` (recovery documentation, separate) |
+
+Every Port commit (A1–B8) uses **path copy**: each changed path is written from its source commit's blob. No cherry-pick, merge or rebase was used.
+
+### Checks run before reporting
+- **Tree comparison.** Port A (after A9) equals the earlier dry-run tree `e0926ea…`. Port B (after B8) equals `b0b26b3…`.
+  The residual brings the tree to the payload `0defc861…`, which matches exactly.
+- **Against the recorded tree.** Final tree versus `9d0bd466…`: the only differences are the plan file (added) and the two PNG previews (removed).
+  They are not in any commit, as §3 requires. They remain untracked in the working tree.
+- **Path-level check.** 103 changed paths across the Port commits all equal their source blobs. None are unexplained.
+- **Governance.** No new commit touches the seven governance files. Their blobs equal the Arena versions and the working tree.
+- **Spoken.** No commit touches `web/src/spoken.ts` or `spoken.test.ts`.
+- **Secret scan.** The scan of every path added relative to `f7af520` found no key-like strings.
+- **Working tree.** Byte-identical to the backup, excluding `.git`, `node_modules` and `dist`. `git status` shows only the two untracked PNGs.
+- **`scripts/verify.sh`** (real Chromium 131, deps reinstalled from lockfiles): exit 0, all phases passed. Server 84/84, smoke 5/5, web typecheck, vitest 86/86, production build, browser 14/14 (no unexpected console errors).
+
+### Corrections
+- §1: the tree `9d0bd466…` includes the PNG previews. An earlier line in this document said it excluded them. That was wrong, and it is corrected above.
+- The 94 paths that differ from `f7af520` = 95 earlier (92 added and 3 modified), minus the 2 PNGs, plus the plan file.
+
+### Remaining risks and open items
+- The **original Request P commit SHAs** (`601d55d`…`5273733`) cannot be restored. These commits are new objects with new SHAs and timestamps. The commit messages cite the GenSpark sources, and the provenance document is the link to the old commits.
+- The seven cherry-picks are **not** in this history. The new history uses path copy only. Their earlier deviation stays recorded in `docs/PLANNING_PROVENANCE.md`.
+- **Not pushed.** `origin/arena` is still at `f7af520`. Pushing needs separate explicit approval. A push will be a fast-forward (`f7af520` is an ancestor of `953f5b1`), so no force is needed.
+- The two PNG previews are untracked on purpose. Decide whether they belong in the repo, or add them to `.gitignore`.
+- The seven governance files still need a decision: keep Arena's versions (current state) or take GenSpark's per file.
+- Live provider evaluation remains **BLOCKED** (no key in this sandbox).
+- The Vercel decisions in §7 are unchanged. Nothing was deployed.
