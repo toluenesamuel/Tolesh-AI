@@ -70,6 +70,19 @@ else
   fail "web deps missing — run: cd web && npm install"
 fi
 
+# ---- Phase 4: browser scenarios (optional; needs a Chromium) ---------------
+# Starts its own API, Vite and a scripted provider on test ports, then checks
+# the real UI (reasoning never shown, truncation, interruption recovery, date).
+# Without CHROME_PATH this phase is BLOCKED, not passed. It does not fail the run.
+banner "Browser scenarios (real Chromium)"
+if [ -z "${CHROME_PATH:-}" ]; then
+  printf '  \033[1;33mBLOCKED\033[0m set CHROME_PATH to a Chromium binary to run web/e2e/ui-scenarios.mjs\n'
+elif [ ! -d "$ROOT/web/node_modules/playwright-core" ]; then
+  printf '  \033[1;33mBLOCKED\033[0m web deps missing (playwright-core); run: cd web && npm install\n'
+else
+  ( cd "$ROOT/web" && node e2e/ui-scenarios.mjs ) && pass "browser scenarios" || fail "browser scenarios — see output above"
+fi
+
 banner "RESULT"
 if [ "$FAIL" = 0 ]; then
   printf '\033[1;32mAll phases passed.\033[0m\n'
