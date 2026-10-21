@@ -43,3 +43,59 @@ Source blob = the `genspark_ai_developer` blob ID at `469ba8a`. Arena blob = the
 ## Re-sync rule
 
 When `genspark_ai_developer` changes, repeat AGENT_COLLABORATION.md section 3.4. Record the new source head here. Do not overwrite a reconciled file unless the change is a clear, reviewed update to the same text.
+
+
+## Request P ports (2026-10-19)
+
+Source branch: `origin/genspark_ai_developer`. Source head read this session: `b5f5e71`.
+Arena base before these ports: `0b35807`. Method: see the deviation note below.
+
+Port commits, in order, with the source commit each one came from. The table lists every
+path a port commit touched. Blob IDs are short git blob hashes; "HEAD" is the Arena
+branch at the time this table was written.
+
+| Source → Arena commit | Path | Source blob | Arena blob (HEAD) | Status |
+|---|---|---|---|---|
+| `4d5a1ce` → `fb5e4b8` | `server/src/index.js` | `be5b860` | `508feea` | Arena-edited after port |
+| `4d5a1ce` → `fb5e4b8` | `server/src/request-abort.js` | `ec43553` | `ec43553` | identical to source |
+| `4d5a1ce` → `fb5e4b8` | `server/test/abort-wiring.test.js` | `1213adf` | `1213adf` | identical to source |
+| `7596f5d` → `3b78c64` | `web/e2e/verify-settings.mjs` | `57a5a5c` | `a990676` | Arena-edited after port |
+| `7596f5d` → `3b78c64` | `web/src/main.ts` | `b29b917` | `f0749d3` | Arena-edited after port |
+| `7596f5d` → `3b78c64` | `web/src/settings.test.ts` | `4180ff0` | `4180ff0` | identical to source |
+| `7596f5d` → `3b78c64` | `web/src/settings.ts` | `69ecf94` | `69ecf94` | identical to source |
+| `7596f5d` → `3b78c64` | `web/src/speech-queue.test.ts` | `63c565a` | `67e518a` | Arena-edited after port |
+| `7596f5d` → `3b78c64` | `web/src/speech-queue.ts` | `fab304c` | `24b550e` | Arena-edited after port |
+| `7596f5d` → `3b78c64` | `web/src/styles.css` | `c0c7f32` | `c0c7f32` | identical to source |
+| `14df0ff` → `fc934b9` | `web/e2e/verify-reconnect.mjs` | `ddcbb99` | `3377059` | Arena-edited after port |
+| `14df0ff` → `fc934b9` | `web/src/main.ts` | `9c24b5b` | `f0749d3` | Arena-edited after port |
+| `14df0ff` → `fc934b9` | `web/src/reconnect.test.ts` | `b9d2cb2` | `b9d2cb2` | identical to source |
+| `14df0ff` → `fc934b9` | `web/src/reconnect.ts` | `4df08d9` | `4df08d9` | identical to source |
+| `e37be3d` → `c719bd6` | `docs/FEATURE_AUDIT.md` | `41bbe80` | `ea1ff22` | identical to GenSpark tip (later GenSpark commit) |
+| `240c60e` → `5097baf` | `.agents/skills/spec-miner/SKILL.md` | `54a922e` | `54a922e` | identical to source |
+| `240c60e` → `5097baf` | `.agents/skills/spec-miner/references/analysis-checklist.md` | `2986b34` | `2986b34` | identical to source |
+| `240c60e` → `5097baf` | `.agents/skills/spec-miner/references/analysis-process.md` | `d918aba` | `d918aba` | identical to source |
+| `240c60e` → `5097baf` | `.agents/skills/spec-miner/references/ears-format.md` | `6de8a9e` | `6de8a9e` | identical to source |
+| `240c60e` → `5097baf` | `.agents/skills/spec-miner/references/specification-template.md` | `f250074` | `f250074` | identical to source |
+| `240c60e` → `5097baf` | `.claude/skills/spec-miner` | `044014b` | `044014b` | identical to source |
+| `240c60e` → `5097baf` | `docs/JARVIS_REFERENCE_ANALYSIS.md` | `836900b` | `dcf6b22` | identical to GenSpark tip (later GenSpark commit) |
+| `74112e8` → `bba27fb` | `docs/OVERNIGHT_REPORT.md` | `2d90626` | `2d90626` | identical to source |
+| `b5f5e71` → `66d58eb` | `docs/FEATURE_AUDIT.md` | `ea1ff22` | `ea1ff22` | identical to source |
+| `b5f5e71` → `66d58eb` | `docs/JARVIS_REFERENCE_ANALYSIS.md` | `dcf6b22` | `dcf6b22` | identical to source |
+| `0453a14` → `(not ported: code)` | `web/src/speech-queue.test.ts` | `bf0d08f` | `67e518a` | Arena-edited after port |
+| `0453a14` → `(not ported: code)` | `web/src/speech-queue.ts` | `6aa85e1` | `24b550e` | Arena-edited after port |
+| `0453a14` → `(not ported: code)` | `web/src/spoken.test.ts` | `641e6b7` | `absent` | not ported (duplicate speech path) |
+| `0453a14` → `(not ported: code)` | `web/src/spoken.ts` | `29f3776` | `absent` | not ported (duplicate speech path) |
+
+**Deviation (recorded).** Port commits `fb5e4b8`, `3b78c64`, `fc934b9`, `c719bd6`,
+`5097baf`, `bba27fb`, `66d58eb` were made with `git cherry-pick`. `AGENT_COLLABORATION.md`
+section 3.4 says path copy only, with no cherry-pick. The commits are unpushed. Options are
+in `docs/OPEN_DECISIONS_REQUEST_P.md` (D-P9).
+
+**Not ported by design.** `0453a14` `web/src/spoken.ts` and `spoken.test.ts`: Arena already
+has one speech path (`speech-text.ts` plus the queue with watchdog). The test cases of
+`spoken.test.ts` were ported as `web/src/speech-behaviour.test.ts` and run against Arena's
+queue (commit `1037fac`).
+
+**Arena commits that are not ports, in this request:** `13b4b62`, `8c00062`, `0b35807`,
+`c463eb8`, `1037fac` (test and small fix), `601d55d` (verify.sh), `e250b37` (portable e2e
+scripts). See `docs/BRANCH_COMPARISON.md`.

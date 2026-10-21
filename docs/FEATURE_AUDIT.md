@@ -8,6 +8,42 @@ shipped, evidence missing), **partial**, **missing**, **blocked**.
 Evidence citations name the exact suite/command that was run. Nothing here is
 claimed without the run that proves it — see "Fresh verification evidence".
 
+## Request P status (2026-10-19, Arena branch `arena/fae714f3-tolesh-ai`)
+
+Classes: **verified** (automated or browser run in this request), **partial**,
+**unverified** (code exists, the check that matters has not run), **blocked** (needs
+something not available here), **not done**. The GenSpark sections below are kept as
+the earlier record.
+
+| Feature | Class | Evidence / what is missing |
+|---|---|---|
+| Reasoning never shown, stored or spoken | verified (scripted provider) | Browser `ui-scenarios` 14/14; server tests. Not measured on a real model (no key) |
+| Stored reply equals displayed reply | verified | Browser `ui-scenarios` (history check) |
+| Stream interruption shows an honest error, keeps partial text, returns to idle | verified | Browser `ui-scenarios`; `chat-route` and `reliability` tests (stream breaks give a terminal `error` event) |
+| Truncated answer shows a visible cut-off note | verified | Browser `ui-scenarios`; `api.chatstream` tests |
+| Client disconnect aborts the upstream call | verified | `abort-wiring.test.js` (3 tests, from GenSpark `4d5a1ce`) |
+| Retries bounded; no retry on abort; a 401 is never retried | verified | `reliability.test.js` (27 tests) |
+| Streamed text equals whole-reply text (literal `<`, partial tags) | verified | `final-answer.test.js`; the new tests fail on the previous code |
+| Speech text matches the displayed text (words, order) | verified (text path) | `display-speech-parity.test.ts`: 40 random stream splits; `speech-behaviour.test.ts` |
+| Speech **audio** plays the same words | **unverified** | No speech engine in headless Chromium. Needs a browser with speech, or a real device |
+| Voice recognition (speech in) | **unverified** | Same reason. Language setting unchanged |
+| Current date and time reach the model | verified | Browser `ui-scenarios` (the request carries 2026-10-19, Africa/Lagos) |
+| Context retention: last 40 messages, 24,000 chars, omission note | verified (limits); **unverified** (model uses them) | Direct `buildModelMessages` check. Whether answers use the context needs a live run |
+| Natural Nigerian Pidgin by default | **not done** | Default is `mirror` (decision D-P1). `pidgin` is opt-in. Native-speaker review not done (D-P2) |
+| Provider evaluation (Dahl, other models) | **blocked** | No provider key. `server/eval/run.mjs` exits 2 (BLOCKED). Only the Dahl adapter exists |
+| Output validation | partial | Final-answer path, truncation and empty-answer checks. No schema validation beyond these |
+| Tool reliability | **not done** | The app has no tool calls to test |
+| Settings, onboarding, conversation export | verified | `verify-settings.mjs` 8/8 (ported from GenSpark, portable paths); `settings.test.ts` |
+| Auto-reconnect after server outage | verified | `verify-reconnect.mjs` 2/2; `reconnect.test.ts` |
+| JARVIS HUD refinement, avatar-free | **not done** | Not started in this request. Existing HUD unchanged |
+| Cloud avatar | prototype | `spikes/cloud-avatar/`: not integrated, unchanged here |
+| Spec Miner skill (`Jeffallan/claude-skills`, MIT) | partial | Files and frontmatter checked. Activation in Claude Code **unverified** |
+| 19 UI and animation skills | partial | Links resolve to `SKILL.md` (file level). Activation **unverified** |
+| Desktop control (Linux) | **not done** | Not installed. Needs approval (D-P5) |
+| Public APIs | **not done** | None chosen; needs a named use case (D-P8) |
+| Overhead of Tolesh itself (fake provider, 300 ms) | verified (benchmark) | First byte p50 7 ms; full-reply overhead p50 20 ms. No regression against `faa9e6c`. Model latency not measured |
+| Full project check (`scripts/verify.sh`) | verified | Server 84/84, smoke, web 86/86, build, browser 14/14 (with `CHROME_PATH`) |
+
 ## Fresh verification evidence (2026-10-19 ~03:10)
 
 | Suite | Command | Result |
