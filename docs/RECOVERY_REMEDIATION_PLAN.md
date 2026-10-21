@@ -142,6 +142,6 @@ Every Port commit (A1–B8) uses **path copy**: each changed path is written fro
 - The seven cherry-picks are **not** in this history. The new history uses path copy only. Their earlier deviation stays recorded in `docs/PLANNING_PROVENANCE.md`.
 - **Not pushed.** `origin/arena` is still at `f7af520`. Pushing needs separate explicit approval. A push will be a fast-forward (`f7af520` is an ancestor of `953f5b1`), so no force is needed.
 - The two PNG previews are untracked on purpose. Decide whether they belong in the repo, or add them to `.gitignore`.
-- The seven governance files still need a decision: keep Arena's versions (current state) or take GenSpark's per file.
+- Governance: the seven governance files are **kept at Arena's versions** (user instruction, Option A). Taking any GenSpark change to them needs a separate file-by-file approval.
 - Live provider evaluation remains **BLOCKED** (no key in this sandbox).
 - The Vercel decisions in §7 are unchanged. Nothing was deployed.
